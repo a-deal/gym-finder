@@ -16,6 +16,71 @@ class GooglePlacesService:
     def __init__(self, api_key=None):
         self.api_key = api_key or os.getenv("GOOGLE_PLACES_API_KEY")
 
+    def _validate_place_data(self, place):
+        """Validate and sanitize place data from Google Places API.
+
+        Ensures data integrity by validating required fields, sanitizing input,
+        and providing safe defaults for missing or invalid data specific to
+        Google Places API (New) response format.
+
+        Args:
+            place (dict): Raw place data from Google Places API response
+
+        Returns:
+            dict: Validated and sanitized place data, or None if invalid
+
+        Example:
+            >>> service = GooglePlacesService()
+            >>> valid_gym = service._validate_place_data(raw_places_data)
+            >>> if valid_gym:
+            ...     print(f"Validated: {valid_gym['name']} at {valid_gym['address']}")
+        """
+        if not isinstance(place, dict):
+            return None
+
+        # Required fields validation
+        display_name = place.get("displayName", {})
+        if not isinstance(display_name, dict) or not display_name.get("text"):
+            return None
+
+        # Validate location data
+        location = place.get("location", {})
+        if not isinstance(location, dict):
+            location = {}
+
+        # Validate numeric fields
+        rating = place.get("rating")
+        if rating is not None and not isinstance(rating, (int, float)):
+            rating = "N/A"
+
+        user_rating_count = place.get("userRatingCount", 0)
+        if not isinstance(user_rating_count, int) or user_rating_count < 0:
+            user_rating_count = 0
+
+        # Validate opening hours
+        opening_hours = place.get("currentOpeningHours", place.get("regularOpeningHours", {}))
+        if not isinstance(opening_hours, dict):
+            opening_hours = {}
+
+        return {
+            "name": str(display_name.get("text", "Unknown")).strip(),
+            "address": str(place.get("formattedAddress", "N/A")).strip(),
+            "phone": str(place.get("nationalPhoneNumber", place.get("internationalPhoneNumber", "N/A"))).strip(),
+            "rating": rating,
+            "review_count": user_rating_count,
+            "price": self.convert_price_level(place.get("priceLevel")),
+            "url": str(place.get("websiteUri", f"https://maps.google.com/?place_id={place.get('id', '')}")).strip(),
+            "source": "Google Places (New)",
+            "place_id": str(place.get("id", "")).strip(),
+            "location": {"lat": location.get("latitude"), "lng": location.get("longitude")},
+            "types": place.get("types", []) if isinstance(place.get("types"), list) else [],
+            "open_now": opening_hours.get("openNow"),
+            "business_hours": opening_hours,
+            "website": str(place.get("websiteUri", "")).strip(),
+            "google_url": f"https://maps.google.com/?place_id={place.get('id', '')}",
+            "price_level": self.map_price_level(place.get("priceLevel")),
+        }
+
     def search_gyms(self, lat, lng, radius_miles=10):
         """Search for gyms using Google Places API (New) with enhanced details"""
         if not self.api_key:
@@ -44,40 +109,41 @@ class GooglePlacesService:
         try:
             gyms = []
 
-            response = requests.post(search_url, headers=headers, json=payload, timeout=10)
+            response = requests.post(search_url, headers=headers, json=payload, timeout=15)
             response.raise_for_status()
             data = response.json()
 
-            for place in data.get("places", []):
-                # Extract data from new API format
-                display_name = place.get("displayName", {})
-                location = place.get("location", {})
-                opening_hours = place.get("currentOpeningHours", place.get("regularOpeningHours", {}))
+            # Validate API response structure
+            if not isinstance(data, dict):
+                click.echo("Warning: Invalid JSON response from Google Places API")
+                return []
 
-                gym = {
-                    "name": display_name.get("text", "Unknown"),
-                    "address": place.get("formattedAddress", "N/A"),
-                    "phone": place.get("nationalPhoneNumber", place.get("internationalPhoneNumber", "N/A")),
-                    "rating": place.get("rating", "N/A"),
-                    "review_count": place.get("userRatingCount", 0),
-                    "price": self.convert_price_level(place.get("priceLevel")),
-                    "url": place.get("websiteUri", f"https://maps.google.com/?place_id={place.get('id')}"),
-                    "source": "Google Places (New)",
-                    "place_id": place.get("id"),
-                    "location": {"lat": location.get("latitude"), "lng": location.get("longitude")},
-                    "types": place.get("types", []),
-                    "open_now": opening_hours.get("openNow"),
-                    "business_hours": opening_hours,
-                    "website": place.get("websiteUri", ""),
-                    "google_url": f"https://maps.google.com/?place_id={place.get('id')}",
-                    "price_level": self.map_price_level(place.get("priceLevel")),
-                }
-                gyms.append(gym)
+            places = data.get("places", [])
+            if not isinstance(places, list):
+                click.echo("Warning: Invalid places data from Google Places API")
+                return []
+
+            for place in places:
+                validated_gym = self._validate_place_data(place)
+                if validated_gym:
+                    gyms.append(validated_gym)
 
             return gyms
 
+        except requests.exceptions.Timeout:
+            click.echo("Error: Google Places API request timed out")
+            return []
+        except requests.exceptions.ConnectionError:
+            click.echo("Error: Unable to connect to Google Places API")
+            return []
+        except requests.exceptions.HTTPError as e:
+            click.echo(f"Error: Google Places API HTTP error {e.response.status_code}: {e}")
+            return []
         except requests.exceptions.RequestException as e:
-            click.echo(f"Error searching Google Places (New API): {e}")
+            click.echo(f"Error: Google Places API request failed: {e}")
+            return []
+        except (ValueError, KeyError) as e:
+            click.echo(f"Error: Invalid response format from Google Places API: {e}")
             return []
 
     def convert_price_level(self, price_level):
@@ -122,7 +188,7 @@ class GooglePlacesService:
         }
 
         try:
-            response = requests.get(details_url, params=params, timeout=5)
+            response = requests.get(details_url, params=params, timeout=15)
             response.raise_for_status()
             data = response.json()
 
@@ -147,7 +213,7 @@ class GooglePlacesService:
         }
 
         try:
-            response = requests.get(details_url, headers=headers, timeout=8)
+            response = requests.get(details_url, headers=headers, timeout=15)
             response.raise_for_status()
             data = response.json()
 

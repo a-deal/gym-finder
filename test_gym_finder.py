@@ -3,10 +3,11 @@
 Test Suite for GymIntel - Comprehensive Gym Discovery Platform
 """
 
-import json
 import os
 import unittest
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
+
+import requests
 
 from google_places_service import GooglePlacesService
 from gym_finder import GymFinder
@@ -61,7 +62,8 @@ class TestYelpService(unittest.TestCase):
     @patch("yelp_service.requests.get")
     def test_search_gyms_api_error(self, mock_get):
         """Test gym search with API error"""
-        mock_get.side_effect = Exception("API Error")
+        # Use a specific requests exception that our error handling catches
+        mock_get.side_effect = requests.exceptions.RequestException("API Error")
 
         gyms = self.yelp_service.search_gyms(40.7484, -73.9940, 2)
 
