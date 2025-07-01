@@ -105,7 +105,7 @@ gym-finder/
 ### Current System
 Our confidence scoring uses 8+ weighted signals:
 - Name similarity (30% weight)
-- Address matching (25% weight)  
+- Address matching (25% weight)
 - Phone matching (15% weight)
 - Address intelligence (10% weight)
 - Website domain (15% weight)
@@ -126,11 +126,11 @@ When adding confidence signals:
 def new_confidence_signal(self, yelp_data, google_data):
     """Calculate confidence based on new data point"""
     confidence = 0.0
-    
+
     # Your scoring logic here
     if some_condition:
         confidence += 0.05  # 5% weight
-    
+
     return min(confidence, 0.10)  # Cap at 10%
 ```
 
@@ -149,7 +149,7 @@ def test_new_feature(self):
     """Test new feature functionality"""
     gym_finder = GymFinder()
     result = gym_finder.new_feature("test_input")
-    
+
     self.assertIsNotNone(result)
     self.assertGreater(len(result), 0)
     # More assertions...
@@ -196,14 +196,14 @@ def optimize_example(self, data_list):
     """Optimized version with caching"""
     if not hasattr(self, '_cache'):
         self._cache = {}
-    
+
     results = []
     for item in data_list:
         key = hash(item)
         if key not in self._cache:
             self._cache[key] = expensive_operation(item)
         results.append(self._cache[key])
-    
+
     return results
 ```
 
@@ -221,12 +221,12 @@ def optimize_example(self, data_list):
 class NewAPIService:
     def __init__(self, api_key=None):
         self.api_key = api_key or os.getenv('NEW_API_KEY')
-    
+
     def search_gyms(self, lat, lng, radius_miles=10):
         """Standard search interface"""
         if not self.api_key:
             return []
-        
+
         try:
             # API call implementation
             return formatted_results
@@ -260,14 +260,14 @@ flake8 --max-line-length=127 *.py
 ```python
 def example_function(param1, param2):
     """Brief description of what the function does.
-    
+
     Args:
         param1 (str): Description of param1
         param2 (int): Description of param2
-        
+
     Returns:
         dict: Description of return value
-        
+
     Example:
         >>> result = example_function("test", 123)
         >>> print(result['key'])

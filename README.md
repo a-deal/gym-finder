@@ -18,7 +18,7 @@ A powerful CLI tool delivering **comprehensive gym intelligence** through **mult
 - **Instagram predictions** and social media discovery
 - **Membership fee estimates** (coming soon)
 
-### 📊 **Advanced Analytics** 
+### 📊 **Advanced Analytics**
 - **Confidence scoring** for data quality transparency
 - **Source attribution** showing data origins
 - **Merge statistics** and coverage metrics
@@ -83,7 +83,7 @@ python gym_finder.py --zipcode 10001 --export both
 
 ### Command Options
 - `--zipcode` / `-z`: ZIP code to search (required)
-- `--radius` / `-r`: Search radius in miles (default: 10) 
+- `--radius` / `-r`: Search radius in miles (default: 10)
 - `--export` / `-e`: Export format - csv, json, or both
 - `--no-google`: Disable Google Places (Yelp-only)
 
@@ -117,7 +117,7 @@ python gym_finder.py --zipcode 10001 --export both
 Advanced **8-signal algorithm** for intelligent data fusion:
 
 1. **Name Similarity (40%)** - Fuzzy matching with business name cleaning
-2. **Address Matching (30%)** - Enhanced normalization + street/suite matching  
+2. **Address Matching (30%)** - Enhanced normalization + street/suite matching
 3. **Phone Exact Match (20%)** - Complete phone data comparison
 4. **Coordinate Proximity (15%)** - Distance-based matching with geocoding
 5. **Website Domain (25%)** - Business website URL comparison
@@ -167,7 +167,7 @@ Advanced **8-signal algorithm** for intelligent data fusion:
 
 ### **Planned Integrations**
 - OpenStreetMap Overpass API
-- Facebook Places Graph API  
+- Facebook Places Graph API
 - Instagram Basic Display API
 - Mindbody API
 - ClassPass API

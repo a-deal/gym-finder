@@ -85,7 +85,7 @@ results = run_gym_search("10001", new_parameter=True)
 ## 🔧 Technical Considerations
 **APIs involved:**
 - [ ] Yelp Fusion API modifications
-- [ ] Google Places API enhancements  
+- [ ] Google Places API enhancements
 - [ ] New third-party API integration
 - [ ] No API changes needed
 

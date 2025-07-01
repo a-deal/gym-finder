@@ -2,54 +2,58 @@
 # Install with: pip install pre-commit && pre-commit install
 
 repos:
-  # Python code formatting
-  - repo: https://github.com/psf/black
-    rev: 23.12.1
-    hooks:
-      - id: black
-        args: [--line-length=127]
-        language_version: python3
-
-  # Import sorting
-  - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
-      - id: isort
-        args: [--line-length=127, --profile=black]
-
-  # Python linting
-  - repo: https://github.com/pycqa/flake8
-    rev: 7.0.0
-    hooks:
-      - id: flake8
-        args: [--max-line-length=127, --extend-ignore=E203,W503]
-
-  # Security scanning
-  - repo: https://github.com/pycqa/bandit
-    rev: 1.7.5
-    hooks:
-      - id: bandit
-        args: [-ll, --skip=B101]
-
-  # General hooks
+  # General file checks (run first)
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
+      - id: check-json
       - id: check-added-large-files
         args: [--maxkb=1000]
       - id: check-merge-conflict
       - id: debug-statements
-      - id: check-json
-      - id: pretty-format-json
-        args: [--autofix, --indent=2]
 
-  # Documentation checks
+  # Python code formatting (run early to fix formatting issues)
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        args: [--line-length=127]
+        language_version: python3
+        files: \.py$
+
+  # Import sorting (run after black)
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: [--line-length=127, --profile=black]
+        files: \.py$
+
+  # Python linting (run after formatting)
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        files: \.py$
+
+  # Security scanning (critical - run after linting)
+  - repo: https://github.com/pycqa/bandit
+    rev: 1.7.5
+    hooks:
+      - id: bandit
+        args: [-ll, --skip=B101]
+        files: \.py$
+        exclude: test_.*\.py$  # Skip test files
+
+  # Additional file format checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
+      - id: pretty-format-json
+        args: [--autofix, --indent=2]
       - id: check-docstring-first
 
   # Custom local hooks
@@ -58,17 +62,7 @@ repos:
       - id: run-smoke-tests
         name: Run smoke tests
         entry: python3
-        args: [-c, "
-          try:
-            from gym_finder import GymFinder;
-            from yelp_service import YelpService;
-            from google_places_service import GooglePlacesService;
-            gf = GymFinder();
-            print('✅ Smoke tests passed');
-          except Exception as e:
-            print(f'❌ Smoke tests failed: {e}');
-            exit(1)
-        "]
+        args: [-c, "try:\n  from gym_finder import GymFinder\n  from yelp_service import YelpService\n  from google_places_service import GooglePlacesService\n  gf = GymFinder()\n  print('✅ Smoke tests passed')\nexcept Exception as e:\n  print(f'❌ Smoke tests failed: {e}')\n  exit(1)"]
         language: system
         pass_filenames: false
         always_run: true
@@ -76,18 +70,7 @@ repos:
       - id: check-api-keys
         name: Check API key configuration
         entry: python3
-        args: [-c, "
-          import os;
-          from dotenv import load_dotenv;
-          load_dotenv();
-          yelp_key = os.getenv('YELP_API_KEY');
-          google_key = os.getenv('GOOGLE_PLACES_API_KEY');
-          if not yelp_key or yelp_key == 'your_yelp_api_key_here':
-            print('⚠️  YELP_API_KEY not configured in .env');
-          if not google_key or google_key == 'your_google_places_api_key_here':
-            print('⚠️  GOOGLE_PLACES_API_KEY not configured in .env');
-          print('✅ API key check completed')
-        "]
+        args: [-c, "import os\nfrom dotenv import load_dotenv\nload_dotenv()\nyelp_key = os.getenv('YELP_API_KEY')\ngoogle_key = os.getenv('GOOGLE_PLACES_API_KEY')\nif not yelp_key or yelp_key == 'your_yelp_api_key_here':\n  print('⚠️  YELP_API_KEY not configured in .env')\nif not google_key or google_key == 'your_google_places_api_key_here':\n  print('⚠️  GOOGLE_PLACES_API_KEY not configured in .env')\nprint('✅ API key check completed')"]
         language: system
         pass_filenames: false
         always_run: true
@@ -95,19 +78,7 @@ repos:
       - id: performance-check
         name: Quick performance check
         entry: python3
-        args: [-c, "
-          import time;
-          from gym_finder import GymFinder;
-          gf = GymFinder();
-          start = time.time();
-          for i in range(100):
-            gf.normalize_address(f'{i} Main St');
-          elapsed = time.time() - start;
-          if elapsed > 0.5:
-            print(f'❌ Performance degradation: {elapsed:.3f}s > 0.5s');
-            exit(1);
-          print(f'✅ Performance OK: {elapsed:.3f}s for 100 address normalizations')
-        "]
+        args: [-c, "import time\nfrom gym_finder import GymFinder\ngf = GymFinder()\nstart = time.time()\nfor i in range(100):\n  gf.normalize_address(f'{i} Main St')\nelapsed = time.time() - start\nif elapsed > 0.5:\n  print(f'❌ Performance degradation: {elapsed:.3f}s > 0.5s')\n  exit(1)\nprint(f'✅ Performance OK: {elapsed:.3f}s for 100 address normalizations')"]
         language: system
         pass_filenames: false
         files: \.(py)$
