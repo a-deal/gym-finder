@@ -77,9 +77,7 @@ def run_integration_tests():
         # Test 2: Service module imports
         print("2️⃣  Testing service module imports... ", end="", flush=True)
         try:
-            from google_places_service import GooglePlacesService
             from gym_finder import GymFinder
-            from yelp_service import YelpService
 
             print("✅ PASSED")
             integration_test_2 = True
@@ -147,7 +145,6 @@ def run_smoke_tests():
         print("💨 Testing imports... ", end="", flush=True)
         from google_places_service import GooglePlacesService
         from gym_finder import GymFinder
-        from run_gym_search import run_gym_search
         from yelp_service import YelpService
 
         print("✅")

@@ -3,7 +3,6 @@
 Benchmark Suite for GymIntel - Performance and Accuracy Testing
 """
 
-<<<<<<< HEAD:scripts/benchmark.py
 import os
 import statistics
 import sys
@@ -13,12 +12,6 @@ from datetime import datetime
 # Add src directory to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-=======
-import statistics
-import time
-from datetime import datetime
-
->>>>>>> origin/main:benchmark.py
 from run_gym_search import run_gym_search
 
 
