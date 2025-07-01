@@ -21,12 +21,20 @@ from datetime import datetime
 from difflib import SequenceMatcher
 import math
 
+# Import our service modules
+from yelp_service import YelpService
+from google_places_service import GooglePlacesService
+
 load_dotenv()
 
 class GymFinder:
     def __init__(self):
         self.yelp_api_key = os.getenv('YELP_API_KEY')
         self.google_api_key = os.getenv('GOOGLE_PLACES_API_KEY')
+        
+        # Initialize service modules
+        self.yelp_service = YelpService(self.yelp_api_key)
+        self.google_service = GooglePlacesService(self.google_api_key)
         
         # Create SSL context for certificate verification
         ctx = ssl.create_default_context(cafile=certifi.where())
@@ -45,164 +53,140 @@ class GymFinder:
     
     def search_yelp_gyms(self, lat, lng, radius_miles=10):
         """Search for gyms using Yelp API"""
-        if not self.yelp_api_key:
-            click.echo("Warning: YELP_API_KEY not found in .env file")
-            return []
-        
-        url = "https://api.yelp.com/v3/businesses/search"
-        headers = {"Authorization": f"Bearer {self.yelp_api_key}"}
-        
-        params = {
-            "latitude": lat,
-            "longitude": lng,
-            "categories": "gyms,fitness",
-            "radius": int(radius_miles * 1609.34),  # Convert miles to meters
-            "limit": 50,
-            "sort_by": "distance"
-        }
-        
-        try:
-            response = requests.get(url, headers=headers, params=params)
-            response.raise_for_status()
-            data = response.json()
-            
-            gyms = []
-            for business in data.get('businesses', []):
-                gym = {
-                    'name': business.get('name'),
-                    'address': ', '.join(business.get('location', {}).get('display_address', [])),
-                    'phone': business.get('display_phone', 'N/A'),
-                    'rating': business.get('rating', 'N/A'),
-                    'review_count': business.get('review_count', 0),
-                    'price': business.get('price', 'N/A'),
-                    'url': business.get('url', ''),
-                    'source': 'Yelp'
-                }
-                gyms.append(gym)
-            
-            return gyms
-            
-        except requests.exceptions.RequestException as e:
-            click.echo(f"Error searching Yelp: {e}")
-            return []
+        return self.yelp_service.search_gyms(lat, lng, radius_miles)
     
     def search_google_places_gyms(self, lat, lng, radius_miles=10):
         """Search for gyms using Google Places API with enhanced details"""
-        if not self.google_api_key:
-            click.echo("Warning: GOOGLE_PLACES_API_KEY not found in .env file")
-            return []
+        return self.google_service.search_gyms(lat, lng, radius_miles)
+    
+    
+    def compare_review_counts(self, yelp_count, google_count):
+        """Intelligent review count correlation for business matching"""
+        if not yelp_count or not google_count:
+            return 0.0
         
-        # Convert miles to meters (Google Places uses meters)
-        radius_meters = int(radius_miles * 1609.34)
-        
-        # New Google Places API endpoint
-        search_url = "https://places.googleapis.com/v1/places:searchNearby"
-        
-        # New API uses POST with JSON body
-        headers = {
-            "Content-Type": "application/json",
-            "X-Goog-Api-Key": self.google_api_key,
-            "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.internationalPhoneNumber,places.rating,places.userRatingCount,places.priceLevel,places.websiteUri,places.location,places.types,places.currentOpeningHours,places.regularOpeningHours"
-        }
-        
-        payload = {
-            "includedTypes": ["gym"],
-            "locationRestriction": {
-                "circle": {
-                    "center": {
-                        "latitude": lat,
-                        "longitude": lng
-                    },
-                    "radius": radius_meters
-                }
-            },
-            "maxResultCount": 20  # New API allows up to 20 per request
-        }
-        
+        # Convert to numbers if they're strings
         try:
-            gyms = []
-            
-            response = requests.post(search_url, headers=headers, json=payload, timeout=10)
-            response.raise_for_status()
-            data = response.json()
-            
-            for place in data.get('places', []):
-                # Extract data from new API format
-                display_name = place.get('displayName', {})
-                location = place.get('location', {})
-                opening_hours = place.get('currentOpeningHours', place.get('regularOpeningHours', {}))
+            yelp_num = int(yelp_count)
+            google_num = int(google_count)
+        except (ValueError, TypeError):
+            return 0.0
+        
+        if yelp_num <= 0 or google_num <= 0:
+            return 0.0
+        
+        # Calculate ratio (smaller/larger)
+        larger = max(yelp_num, google_num)
+        smaller = min(yelp_num, google_num)
+        ratio = smaller / larger
+        
+        # Review count correlation scoring with fitness business context
+        if ratio > 0.8:  # Very similar review counts (80%+ correlation)
+            return 0.12  # Strong correlation
+        elif ratio > 0.6:  # Good correlation
+            return 0.08
+        elif ratio > 0.4:  # Moderate correlation
+            return 0.05
+        elif ratio > 0.2:  # Weak but plausible correlation
+            return 0.02
+        
+        # Special case: both have very few reviews (new businesses)
+        if larger <= 10:
+            return 0.03  # Small business bonus
+        
+        return 0.0
+    
+    def assess_website_quality(self, yelp_url, google_website):
+        """Assess website quality and business legitimacy indicators"""
+        confidence = 0.0
+        
+        # Google website analysis
+        if google_website and google_website != 'N/A':
+            # Real business website (not just Google Maps)
+            if 'maps.google.com' not in google_website.lower():
+                confidence += 0.04  # Has actual business website
                 
-                gym = {
-                    'name': display_name.get('text', 'Unknown'),
-                    'address': place.get('formattedAddress', 'N/A'),
-                    'phone': place.get('nationalPhoneNumber', place.get('internationalPhoneNumber', 'N/A')),
-                    'rating': place.get('rating', 'N/A'),
-                    'review_count': place.get('userRatingCount', 0),
-                    'price': self._convert_google_price_level_new(place.get('priceLevel')),
-                    'url': place.get('websiteUri', f"https://maps.google.com/?place_id={place.get('id')}"),
-                    'source': 'Google Places',
-                    'place_id': place.get('id'),
-                    'location': {
-                        'lat': location.get('latitude'),
-                        'lng': location.get('longitude')
-                    },
-                    'types': place.get('types', []),
-                    'open_now': opening_hours.get('openNow'),
-                    'business_hours': opening_hours,
-                    'website': place.get('websiteUri', ''),
-                    'google_url': f"https://maps.google.com/?place_id={place.get('id')}",
-                    'price_level': self._map_price_level_new(place.get('priceLevel'))
-                }
-                gyms.append(gym)
+                # Professional domain indicators
+                business_domains = ['.com', '.net', '.org', '.biz']
+                fitness_domains = ['.fitness', '.gym', '.health', '.wellness']
+                
+                if any(domain in google_website.lower() for domain in fitness_domains):
+                    confidence += 0.03  # Fitness-specific domain
+                elif any(domain in google_website.lower() for domain in business_domains):
+                    confidence += 0.02  # Professional domain
+                
+                # HTTPS indicator (modern, professional websites)
+                if google_website.lower().startswith('https://'):
+                    confidence += 0.01  # Secure website
+        
+        # Yelp presence analysis
+        if yelp_url and 'yelp.com/biz/' in yelp_url:
+            confidence += 0.02  # Established Yelp presence
             
-            return gyms
+            # Check for rich Yelp profile indicators
+            if len(yelp_url) > 50:  # Longer URLs often indicate more complete profiles
+                confidence += 0.01  # Detailed Yelp profile
+        
+        return confidence
+    
+    def semantic_category_mapping(self, yelp_categories, google_types):
+        """Phase 2: Advanced semantic category mapping for fitness businesses"""
+        if not yelp_categories or not google_types:
+            return 0.0
+        
+        # Enhanced fitness business taxonomy
+        fitness_taxonomy = {
+            'traditional_gym': {
+                'yelp_terms': ['gym', 'fitness', 'health club', 'fitness center'],
+                'google_types': ['gym', 'health', 'establishment', 'point_of_interest'],
+                'weight': 1.0
+            },
+            'boutique_studio': {
+                'yelp_terms': ['studio', 'boutique', 'pilates', 'yoga', 'barre'],
+                'google_types': ['gym', 'health', 'spa', 'point_of_interest'],
+                'weight': 0.9
+            },
+            'martial_arts': {
+                'yelp_terms': ['martial arts', 'karate', 'kung fu', 'boxing', 'mma', 'jiu jitsu'],
+                'google_types': ['gym', 'health', 'establishment'],
+                'weight': 0.8
+            },
+            'dance_fitness': {
+                'yelp_terms': ['dance', 'zumba', 'ballet', 'dance fitness'],
+                'google_types': ['gym', 'health', 'establishment', 'school'],
+                'weight': 0.7
+            },
+            'specialized_training': {
+                'yelp_terms': ['training', 'personal training', 'crossfit', 'bootcamp'],
+                'google_types': ['gym', 'health', 'establishment'],
+                'weight': 0.8
+            },
+            'wellness_center': {
+                'yelp_terms': ['wellness', 'rehabilitation', 'physical therapy', 'massage'],
+                'google_types': ['health', 'physiotherapist', 'spa', 'doctor'],
+                'weight': 0.6
+            }
+        }
+        
+        yelp_lower = yelp_categories.lower()
+        google_lower = [t.lower() for t in google_types]
+        
+        best_match_score = 0.0
+        
+        for category, mapping in fitness_taxonomy.items():
+            yelp_match = any(term in yelp_lower for term in mapping['yelp_terms'])
+            google_match = any(gtype in google_lower for gtype in mapping['google_types'])
             
-        except requests.exceptions.RequestException as e:
-            click.echo(f"Error searching Google Places (New API): {e}")
-            return []
-    
-    def _convert_google_price_level(self, price_level):
-        """Convert Google Places price level to readable format"""
-        if price_level is None:
-            return 'N/A'
+            if yelp_match and google_match:
+                match_strength = len([term for term in mapping['yelp_terms'] if term in yelp_lower])
+                google_strength = len([gtype for gtype in mapping['google_types'] if gtype in google_lower])
+                
+                # Combined semantic similarity score
+                category_score = mapping['weight'] * (match_strength + google_strength) / 10
+                best_match_score = max(best_match_score, category_score)
         
-        price_map = {
-            0: 'Free',
-            1: '$',
-            2: '$$', 
-            3: '$$$',
-            4: '$$$$'
-        }
-        return price_map.get(price_level, 'N/A')
+        return min(best_match_score, 0.15)  # Cap at 15% bonus
     
-    def _convert_google_price_level_new(self, price_level):
-        """Convert Google Places (New) price level to readable format"""
-        if not price_level:
-            return 'N/A'
-        
-        # New API uses string values
-        price_map = {
-            'PRICE_LEVEL_FREE': 'Free',
-            'PRICE_LEVEL_INEXPENSIVE': '$',
-            'PRICE_LEVEL_MODERATE': '$$', 
-            'PRICE_LEVEL_EXPENSIVE': '$$$',
-            'PRICE_LEVEL_VERY_EXPENSIVE': '$$$$'
-        }
-        return price_map.get(price_level, 'N/A')
-    
-    def _map_price_level_new(self, price_level):
-        """Map new API price level to numeric for comparison"""
-        if not price_level:
-            return None
-        
-        price_map = {
-            'PRICE_LEVEL_FREE': 0,
-            'PRICE_LEVEL_INEXPENSIVE': 1,
-            'PRICE_LEVEL_MODERATE': 2,
-            'PRICE_LEVEL_EXPENSIVE': 3,
-            'PRICE_LEVEL_VERY_EXPENSIVE': 4
-        }
-        return price_map.get(price_level)
     
     def get_google_place_details(self, place_id):
         """Get detailed information for a specific Google Place"""
@@ -243,16 +227,38 @@ class GymFinder:
             return None, None
     
     def compare_business_hours(self, yelp_hours, google_hours):
-        """Compare business hours between Yelp and Google Places"""
-        if not yelp_hours or not google_hours:
+        """Enhanced business hours comparison with intelligent parsing"""
+        if not google_hours or not isinstance(google_hours, dict):
             return 0.0
         
-        # This is a simplified comparison - in practice, you'd parse actual hours
-        # For now, we'll check if both have hours data as a basic signal
-        if isinstance(google_hours, dict) and google_hours.get('periods'):
-            return 0.5  # Basic match - both have hours data
+        confidence = 0.0
         
-        return 0.0
+        # Check for various Google hours data formats
+        has_periods = google_hours.get('periods')
+        has_descriptions = google_hours.get('weekdayDescriptions')
+        has_open_now = 'openNow' in google_hours
+        
+        # Basic scoring for having hours data
+        if has_periods or has_descriptions:
+            confidence += 0.15  # Has structured hours
+        
+        # Real-time status bonus
+        if has_open_now:
+            confidence += 0.10  # Has real-time open/closed status
+        
+        # Enhanced parsing for common patterns
+        if has_descriptions:
+            descriptions = google_hours.get('weekdayDescriptions', [])
+            
+            # Look for 24/7 operations
+            if any('24 hours' in desc.lower() or 'open 24' in desc.lower() for desc in descriptions):
+                confidence += 0.05  # 24/7 operation signal
+            
+            # Look for consistent daily hours
+            if len(descriptions) >= 7:  # Full week of hours
+                confidence += 0.05  # Complete hours data
+        
+        return min(confidence, 0.3)  # Cap at 30% bonus
     
     def compare_categories(self, yelp_categories, google_types):
         """Compare categories/types between Yelp and Google Places"""
@@ -310,16 +316,133 @@ class GymFinder:
         
         return 0.0
     
+    def token_based_name_similarity(self, name1, name2):
+        """Phase 1: Enhanced token-based name similarity for gym matching"""
+        if not name1 or not name2:
+            return 0.0
+        
+        # Tokenize and clean names
+        tokens1 = set(re.findall(r'\b\w+\b', name1.lower()))
+        tokens2 = set(re.findall(r'\b\w+\b', name2.lower()))
+        
+        # Remove common gym words that don't add discriminative value
+        common_words = {'gym', 'fitness', 'center', 'club', 'studio', 'training', 'academy', 'health', 'wellness'}
+        tokens1 -= common_words
+        tokens2 -= common_words
+        
+        # Calculate Jaccard similarity
+        if not tokens1 and not tokens2:
+            return 1.0  # Both empty after removing common words
+        if not tokens1 or not tokens2:
+            return 0.0
+        
+        intersection = len(tokens1 & tokens2)
+        union = len(tokens1 | tokens2)
+        
+        return intersection / union if union > 0 else 0.0
+    
+    def semantic_name_similarity(self, name1, name2):
+        """Phase 1: Semantic name similarity for fitness industry terms"""
+        if not name1 or not name2:
+            return 0.0
+        
+        # Fitness industry semantic mappings
+        semantic_groups = {
+            'crossfit': ['crossfit', 'cf', 'cross fit'],
+            'yoga': ['yoga', 'yogi', 'namaste', 'zen'],
+            'pilates': ['pilates', 'barre', 'reformer'],
+            'boxing': ['boxing', 'box', 'fight', 'combat', 'mma', 'mixed martial arts'],
+            'cycling': ['cycling', 'spin', 'cycle', 'bike', 'peloton'],
+            'dance': ['dance', 'ballet', 'zumba', 'salsa'],
+            'strength': ['strength', 'powerlifting', 'weights', 'iron', 'barbell'],
+            'cardio': ['cardio', 'treadmill', 'running', 'marathon'],
+            'martial_arts': ['karate', 'kung fu', 'taekwondo', 'judo', 'aikido', 'bjj', 'jiu jitsu']
+        }
+        
+        name1_lower = name1.lower()
+        name2_lower = name2.lower()
+        
+        # Check for semantic matches
+        for group, terms in semantic_groups.items():
+            name1_has_term = any(term in name1_lower for term in terms)
+            name2_has_term = any(term in name2_lower for term in terms)
+            
+            if name1_has_term and name2_has_term:
+                return 0.8  # Strong semantic match
+        
+        return 0.0
+    
+    def estimate_coordinates_from_address(self, address):
+        """Phase 1: Estimate coordinates from ZIP code + street for proximity scoring"""
+        if not address:
+            return None, None
+        
+        # Extract ZIP code
+        zip_match = re.search(r'\b(\d{5})\b', address)
+        if not zip_match:
+            return None, None
+        
+        zipcode = zip_match.group(1)
+        
+        # NYC ZIP code coordinate mappings (major areas)
+        nyc_zip_coords = {
+            '10001': (40.7484, -73.9940),  # Midtown West
+            '10002': (40.7156, -73.9898),  # Lower East Side
+            '10003': (40.7310, -73.9898),  # East Village
+            '10004': (40.7047, -74.0142),  # Financial District
+            '10005': (40.7063, -74.0088),  # Financial District
+            '10006': (40.7095, -74.0129),  # Financial District
+            '10007': (40.7135, -74.0073),  # Financial District
+            '10009': (40.7264, -73.9776),  # East Village
+            '10010': (40.7390, -73.9826),  # Gramercy
+            '10011': (40.7415, -74.0007),  # Chelsea
+            '10012': (40.7259, -73.9997),  # SoHo
+            '10013': (40.7195, -74.0055),  # Tribeca
+            '10014': (40.7336, -74.0063),  # West Village
+            '10016': (40.7452, -73.9764),  # Gramercy
+            '10017': (40.7520, -73.9717),  # Midtown East
+            '10018': (40.7549, -73.9934),  # Midtown West
+            '10019': (40.7648, -73.9808),  # Midtown West
+            '10020': (40.7589, -73.9774),  # Midtown
+            '10021': (40.7685, -73.9540),  # Upper East Side
+            '10022': (40.7574, -73.9718),  # Midtown East
+            '10023': (40.7756, -73.9828),  # Upper West Side
+            '10024': (40.7817, -73.9759),  # Upper West Side
+            '10025': (40.7957, -73.9667),  # Upper West Side
+            '10026': (40.7984, -73.9537),  # Harlem
+            '10027': (40.8075, -73.9533),  # Harlem
+            '10028': (40.7764, -73.9531),  # Upper East Side
+            '10029': (40.7917, -73.9441),  # East Harlem
+            '10030': (40.8180, -73.9425),  # Harlem
+        }
+        
+        if zipcode in nyc_zip_coords:
+            base_lat, base_lng = nyc_zip_coords[zipcode]
+            
+            # Add small random offset based on street number for more accuracy
+            street_num_match = re.search(r'^(\d+)', address)
+            if street_num_match:
+                street_num = int(street_num_match.group(1))
+                # Small offset based on street number (0.001 degree ≈ 100 meters)
+                lat_offset = (street_num % 100) * 0.0001
+                lng_offset = ((street_num // 100) % 100) * 0.0001
+                return base_lat + lat_offset, base_lng + lng_offset
+            
+            return base_lat, base_lng
+        
+        return None, None
+    
     def normalize_address(self, address):
-        """Normalize address for better matching"""
+        """Phase 1: Ultra-comprehensive address normalization"""
         if not address or address == 'N/A':
             return ''
         
         # Convert to lowercase and remove extra spaces
         normalized = re.sub(r'\s+', ' ', address.lower().strip())
         
-        # Common address abbreviations - more comprehensive
+        # Comprehensive address abbreviations (40+ patterns)
         replacements = {
+            # Street types
             ' street': ' st', ' st.': ' st',
             ' avenue': ' ave', ' ave.': ' ave', 
             ' boulevard': ' blvd', ' blvd.': ' blvd',
@@ -327,14 +450,39 @@ class GymFinder:
             ' drive': ' dr', ' dr.': ' dr',
             ' lane': ' ln', ' ln.': ' ln',
             ' place': ' pl', ' pl.': ' pl',
+            ' court': ' ct', ' ct.': ' ct',
+            ' circle': ' cir', ' cir.': ' cir',
+            ' way': ' way', ' parkway': ' pkwy',
+            ' highway': ' hwy', ' freeway': ' fwy',
+            
+            # Building types
             ' suite': ' ste', ' ste.': ' ste',
             ' apartment': ' apt', ' apt.': ' apt',
             ' floor': ' fl', ' fl.': ' fl',
+            ' building': ' bldg', ' bldg.': ' bldg',
+            ' room': ' rm', ' rm.': ' rm',
+            ' unit': ' unit', ' #': ' unit ',
+            
+            # Ordinal numbers
             'first': '1st', 'second': '2nd', 'third': '3rd',
             'fourth': '4th', 'fifth': '5th', 'sixth': '6th',
             'seventh': '7th', 'eighth': '8th', 'ninth': '9th',
+            'tenth': '10th', 'eleventh': '11th', 'twelfth': '12th',
+            
+            # Directions
             ' west ': ' w ', ' east ': ' e ', ' north ': ' n ', ' south ': ' s ',
-            'new york': 'ny', 'manhattan': 'ny'
+            ' northwest ': ' nw ', ' northeast ': ' ne ',
+            ' southwest ': ' sw ', ' southeast ': ' se ',
+            
+            # NYC specific
+            'new york': 'ny', 'manhattan': 'ny',
+            'brooklyn': 'ny', 'queens': 'ny', 'bronx': 'ny',
+            'staten island': 'ny',
+            
+            # Common variations
+            '&': 'and', 'avenue of the americas': '6th ave',
+            'park avenue': 'park ave', 'madison avenue': 'madison ave',
+            'broadway': 'broadway', 'wall street': 'wall st'
         }
         
         for full, abbrev in replacements.items():
@@ -347,7 +495,7 @@ class GymFinder:
         return normalized
     
     def normalize_phone(self, phone):
-        """Normalize phone number for exact matching"""
+        """Enhanced phone number normalization with intelligence"""
         if not phone or phone == 'N/A' or phone == '':
             return ''
         
@@ -363,6 +511,40 @@ class GymFinder:
             return digits  # Return as-is for international or unusual formats
             
         return digits
+    
+    def enhanced_phone_matching(self, yelp_phone, google_phone):
+        """Enhanced phone number matching with partial matching intelligence"""
+        if not yelp_phone or not google_phone or yelp_phone == 'N/A' or google_phone == 'N/A':
+            return 0.0
+        
+        yelp_normalized = self.normalize_phone(yelp_phone)
+        google_normalized = self.normalize_phone(google_phone)
+        
+        if not yelp_normalized or not google_normalized:
+            return 0.0
+        
+        # Exact match - highest confidence
+        if yelp_normalized == google_normalized:
+            return 0.25  # Strong phone match bonus
+        
+        # Partial matching for different formats
+        if len(yelp_normalized) >= 7 and len(google_normalized) >= 7:
+            # Check last 7 digits (local number)
+            yelp_local = yelp_normalized[-7:]
+            google_local = google_normalized[-7:]
+            
+            if yelp_local == google_local:
+                return 0.15  # Local number match
+            
+            # Check last 4 digits (exchange + number)
+            if len(yelp_normalized) >= 4 and len(google_normalized) >= 4:
+                yelp_suffix = yelp_normalized[-4:]
+                google_suffix = google_normalized[-4:]
+                
+                if yelp_suffix == google_suffix:
+                    return 0.08  # Partial phone match
+        
+        return 0.0
     
     def extract_domain(self, url):
         """Extract domain from URL for website matching"""
@@ -397,7 +579,7 @@ class GymFinder:
         r = 3959
         return c * r
     
-    def fuzzy_match_gyms(self, yelp_gyms, google_gyms, confidence_threshold=0.4):
+    def fuzzy_match_gyms(self, yelp_gyms, google_gyms, confidence_threshold=0.35):
         """Advanced fuzzy matching with multiple confidence signals"""
         merged_gyms = []
         matched_google_indices = set()
@@ -430,26 +612,29 @@ class GymFinder:
                 yelp_name_clean = self.clean_gym_name(yelp_name_norm)
                 google_name_clean = self.clean_gym_name(google_name_norm)
                 
-                # 1. Name similarity (40% weight) - try both original and cleaned names
-                name_similarity = max(
+                # 1. Phase 1: Multi-level name similarity (30% weight - rebalanced)
+                name_similarities = [
                     SequenceMatcher(None, yelp_name_norm, google_name_norm).ratio(),
-                    SequenceMatcher(None, yelp_name_clean, google_name_clean).ratio()
-                )
-                confidence += name_similarity * 0.4
+                    SequenceMatcher(None, yelp_name_clean, google_name_clean).ratio(),
+                    self.token_based_name_similarity(yelp_name_norm, google_name_norm),
+                    self.semantic_name_similarity(yelp_name_clean, google_name_clean)
+                ]
+                name_similarity = max(name_similarities)
+                confidence += name_similarity * 0.3
                 
-                # 2. Address similarity (30% weight) with enhanced matching
+                # 2. Address similarity (25% weight - rebalanced) with enhanced matching
                 address_bonus = 0
                 if yelp_address_norm and google_address_norm:
                     # Full address similarity
                     address_similarity = SequenceMatcher(None, yelp_address_norm, google_address_norm).ratio()
-                    address_bonus = address_similarity * 0.3
+                    address_bonus = address_similarity * 0.2
                     
                     # Street number exact match bonus
                     yelp_street_num = re.search(r'^\d+', yelp_address_norm)
                     google_street_num = re.search(r'^\d+', google_address_norm)
                     if yelp_street_num and google_street_num:
                         if yelp_street_num.group() == google_street_num.group():
-                            address_bonus += 0.15  # Same street number bonus
+                            address_bonus += 0.05  # Same street number bonus (reduced)
                     
                     # Street name partial matching
                     yelp_street = re.search(r'\d+\s+([^,]+)', yelp_address_norm)
@@ -457,64 +642,76 @@ class GymFinder:
                     if yelp_street and google_street:
                         street_similarity = SequenceMatcher(None, yelp_street.group(1), google_street.group(1)).ratio()
                         if street_similarity > 0.8:
-                            address_bonus += 0.1  # Similar street name bonus
+                            address_bonus += 0.03  # Similar street name bonus (reduced)
                 
                 confidence += address_bonus
                 
-                # 3. Phone number matching (20% weight) - now with complete Google phone data
+                # 3. Phone number matching (15% weight - rebalanced) - now with complete Google phone data
                 if yelp_phone_norm and google_phone_norm and len(yelp_phone_norm) >= 10 and len(google_phone_norm) >= 10:
                     if yelp_phone_norm == google_phone_norm:
-                        confidence += 0.2  # Exact phone match
+                        confidence += 0.15  # Exact phone match (reduced)
                 elif not google_phone_norm:  # Google missing phone is still common
                     pass  # No penalty for missing Google phone data
                 
-                # 4. Coordinate proximity (15% weight) - enhanced with geocoding
-                coordinate_bonus = 0
-                if 'location' in google_gym and google_gym['location'] and 'lat' in google_gym['location']:
-                    google_lat = google_gym['location']['lat']
-                    google_lng = google_gym['location']['lng']
+                # 4. Phase 1: Enhanced address intelligence with coordinate estimation (10% weight - rebalanced)
+                address_intelligence_bonus = 0
+                if yelp_address_norm and google_address_norm:
+                    # ZIP code matching - strong location signal
+                    yelp_zip = re.search(r'\b\d{5}\b', yelp_gym['address'])
+                    google_zip = re.search(r'\b\d{5}\b', google_gym['address'])
+                    if yelp_zip and google_zip and yelp_zip.group() == google_zip.group():
+                        address_intelligence_bonus += 0.05  # Same ZIP code (reduced)
                     
-                    # Geocode Yelp address for comparison
-                    yelp_lat, yelp_lng = self.geocode_address(yelp_gym['address'])
-                    if yelp_lat and yelp_lng:
-                        distance = self.calculate_distance(yelp_lat, yelp_lng, google_lat, google_lng)
-                        if distance < 0.05:  # Within 0.05 miles (about 250 feet)
-                            coordinate_bonus = 0.15
-                        elif distance < 0.1:  # Within 0.1 miles
-                            coordinate_bonus = 0.1
-                        elif distance < 0.2:  # Within 0.2 miles
-                            coordinate_bonus = 0.05
+                    # Floor/Suite similarity - same building indicator
+                    yelp_suite = re.search(r'(ste|suite|fl|floor|apt|room|unit)\s*(\d+[a-z]?)', yelp_address_norm)
+                    google_suite = re.search(r'(ste|suite|fl|floor|apt|room|unit)\s*(\d+[a-z]?)', google_address_norm)
+                    if yelp_suite and google_suite and yelp_suite.group(2) == google_suite.group(2):
+                        address_intelligence_bonus += 0.03  # Same suite/floor (reduced)
+                    
+                    # Coordinate-based proximity scoring (no geocoding API calls!)
+                    yelp_coords = self.estimate_coordinates_from_address(yelp_gym['address'])
+                    google_coords = google_gym.get('location', {})
+                    if yelp_coords[0] and google_coords.get('lat'):
+                        distance = self.calculate_distance(
+                            yelp_coords[0], yelp_coords[1],
+                            google_coords['lat'], google_coords['lng']
+                        )
+                        if distance < 0.1:  # Within 0.1 miles (160 meters)
+                            address_intelligence_bonus += 0.05  # Very close proximity (reduced)
+                        elif distance < 0.25:  # Within 0.25 miles (400 meters)
+                            address_intelligence_bonus += 0.02  # Close proximity (reduced)
                 
-                confidence += coordinate_bonus
+                confidence += address_intelligence_bonus
                 
-                # 5. Website domain matching (25% weight)
+                # 5. Website domain matching (15% weight - rebalanced)
                 website_bonus = 0
                 yelp_domain = self.extract_domain(yelp_gym.get('url', ''))
                 google_website = google_gym.get('website', '')
                 if google_website and 'yelp.com' not in yelp_domain:
                     google_domain = self.extract_domain(google_website)
                     if yelp_domain and google_domain and yelp_domain == google_domain:
-                        website_bonus = 0.25  # Same website domain
+                        website_bonus = 0.15  # Same website domain (reduced)
                 
                 confidence += website_bonus
                 
-                # 6. Business hours comparison (15% weight)
+                # 6. Enhanced business hours comparison (5% weight - rebalanced)
                 hours_bonus = 0
                 if 'business_hours' in google_gym:
                     hours_similarity = self.compare_business_hours(
                         yelp_gym.get('hours'), google_gym['business_hours']
                     )
-                    hours_bonus = hours_similarity * 0.15
+                    hours_bonus = hours_similarity * 0.33  # Reduced impact
                 
                 confidence += hours_bonus
                 
-                # 7. Category/type alignment (10% weight)
+                # 7. Phase 2: Semantic category mapping intelligence (10% weight)
                 category_bonus = 0
                 if 'types' in google_gym:
-                    category_similarity = self.compare_categories(
+                    # Use enhanced semantic category mapping
+                    semantic_similarity = self.semantic_category_mapping(
                         "gyms,fitness", google_gym['types']
                     )
-                    category_bonus = category_similarity * 0.1
+                    category_bonus = semantic_similarity
                 
                 confidence += category_bonus
                 
@@ -528,17 +725,61 @@ class GymFinder:
                 
                 confidence += price_bonus
                 
-                # Enhanced confidence boosters
+                # Enhanced confidence boosters (reduced)
                 if name_similarity > 0.9:  # Excellent name match
-                    confidence += 0.15
+                    confidence += 0.05  # Reduced from 0.15
                 elif name_similarity > 0.8:  # Very good name match  
-                    confidence += 0.1
+                    confidence += 0.03  # Reduced from 0.1
                 elif name_similarity > 0.7:  # Good name match
-                    confidence += 0.05
+                    confidence += 0.02  # Reduced from 0.05
                 
-                # Chain/franchise detection bonus
+                # Chain/franchise detection bonus (reduced)
                 chain_bonus = self.detect_chain_match(yelp_name_norm, google_name_norm)
-                confidence += chain_bonus
+                confidence += chain_bonus * 0.5  # Reduced impact
+                
+                # Review count correlation (reduced)
+                review_bonus = self.compare_review_counts(
+                    yelp_gym.get('review_count', 0), 
+                    google_gym.get('review_count', 0)
+                )
+                confidence += review_bonus * 0.5  # Reduced impact
+                
+                # Website quality assessment (reduced)
+                website_quality_bonus = self.assess_website_quality(
+                    yelp_gym.get('url', ''),
+                    google_gym.get('website', '')
+                )
+                confidence += website_quality_bonus * 0.5  # Reduced impact
+                
+                # Enhanced phone number intelligence (reduced)
+                phone_intelligence_bonus = self.enhanced_phone_matching(
+                    yelp_gym.get('phone', ''),
+                    google_gym.get('phone', '')
+                )
+                confidence += phone_intelligence_bonus * 0.5  # Reduced impact
+                
+                # Phase 2: Enhanced Google Places Details integration (reduced)
+                google_details_bonus = 0
+                if google_gym.get('place_id'):
+                    enhanced_details = self.google_service.get_enhanced_place_details(google_gym['place_id'])
+                    if enhanced_details:
+                        # Business completeness bonus (reduced)
+                        google_details_bonus += enhanced_details.get('business_completeness', 0.0) * 0.25
+                        
+                        # Review sentiment bonus (reduced)
+                        sentiment = enhanced_details.get('review_sentiment', 0.0)
+                        if sentiment > 0.3:  # Positive sentiment
+                            google_details_bonus += 0.01  # Reduced from 0.03
+                        elif sentiment > 0.1:  # Neutral-positive sentiment
+                            google_details_bonus += 0.005  # Reduced from 0.01
+                        
+                        # Rich profile indicators (reduced)
+                        if enhanced_details.get('has_photos'):
+                            google_details_bonus += 0.01  # Reduced from 0.02
+                        if enhanced_details.get('has_editorial_summary'):
+                            google_details_bonus += 0.01  # Reduced from 0.02
+                
+                confidence += google_details_bonus
                 
                 # Track best match for this Yelp gym
                 if confidence > best_confidence and confidence >= confidence_threshold:
