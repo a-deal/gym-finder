@@ -157,25 +157,50 @@ jobs:
         echo "GOOGLE_PLACES_API_KEY=test_key" >> .env
 
         python -c "
-        import time, sys; sys.path.insert(0, 'src')
+        import time
+        import sys
+        sys.path.insert(0, 'src')
+
         from gym_finder import GymFinder
 
-        gf = GymFinder()
+        # Test method performance (without API calls)
+        gym_finder = GymFinder()
 
-        # Quick performance check (reduced iterations)
+        # Address normalization performance
         start = time.time()
-        for i in range(100):  # Reduced from 1000
-            gf.normalize_address(f'{i} Main St')
-        addr_time = time.time() - start
+        for i in range(1000):
+            gym_finder.normalize_address(f'{i} Main Street, Suite {i}, NYC')
+        address_time = time.time() - start
 
+        # Phone normalization performance
         start = time.time()
-        for i in range(50):  # Reduced from 100
-            gf.token_based_name_similarity(f'Gym {i}', f'Fitness {i}')
-        sim_time = time.time() - start
+        for i in range(1000):
+            gym_finder.normalize_phone(f'(555) {i:03d}-{i:04d}')
+        phone_time = time.time() - start
 
-        print(f'📊 Address: {addr_time:.3f}s, Similarity: {sim_time:.3f}s')
-        assert addr_time < 0.5 and sim_time < 2.0, 'Performance regression detected'
-        print('✅ Performance tests passed')
+        # Name similarity performance
+        start = time.time()
+        for i in range(100):
+            gym_finder.token_based_name_similarity(f'Gym {i}', f'Fitness {i}')
+        similarity_time = time.time() - start
+
+        print(f'📊 Performance Results:')
+        print(f'Address normalization: {address_time:.3f}s (1000 calls)')
+        print(f'Phone normalization: {phone_time:.3f}s (1000 calls)')
+        print(f'Name similarity: {similarity_time:.3f}s (100 calls)')
+
+        # Performance thresholds (fail if too slow)
+        if address_time > 1.0:
+            print(f'❌ Address normalization too slow: {address_time:.3f}s > 1.0s')
+            sys.exit(1)
+        if phone_time > 1.0:
+            print(f'❌ Phone normalization too slow: {phone_time:.3f}s > 1.0s')
+            sys.exit(1)
+        if similarity_time > 5.0:
+            print(f'❌ Name similarity too slow: {similarity_time:.3f}s > 5.0s')
+            sys.exit(1)
+
+        print('✅ All performance tests passed!')
         "
 
   # Lightweight documentation check
@@ -185,14 +210,27 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Quick documentation check
+    - name: Check documentation files
       run: |
-        # Fast file existence check
-        for file in README.md ARCHITECTURE.md TESTING.md requirements.txt; do
-          [[ -f "$file" ]] || { echo "❌ Missing $file"; exit 1; }
+        # Check that key documentation files exist
+        files=("README.md" "docs/ARCHITECTURE.md" "docs/TESTING.md" "requirements.txt")
+
+        for file in "${files[@]}"; do
+          if [ ! -f "$file" ]; then
+            echo "❌ Missing required file: $file"
+            exit 1
+          else
+            echo "✅ Found: $file"
+          fi
         done
-        [[ $(wc -l < README.md) -gt 50 ]] || { echo "❌ README too short"; exit 1; }
-        echo "✅ Documentation check passed"
+
+        # Check that README has minimum content
+        if [ $(wc -l < README.md) -lt 50 ]; then
+          echo "❌ README.md too short (< 50 lines)"
+          exit 1
+        fi
+
+        echo "✅ Documentation check passed!"
 
   # Final status check
   ci-success:

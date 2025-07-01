@@ -201,7 +201,7 @@ jobs:
         python3 -c "
         import time
         import sys
-        sys.path.append('.')
+        sys.path.insert(0, 'src')
 
         from gym_finder import GymFinder
 
@@ -293,7 +293,7 @@ jobs:
     - name: Check documentation files
       run: |
         # Check that key documentation files exist
-        files=("README.md" "ARCHITECTURE.md" "TESTING.md" "requirements.txt")
+        files=("README.md" "docs/ARCHITECTURE.md" "docs/TESTING.md" "requirements.txt")
 
         for file in "${files[@]}"; do
           if [ ! -f "$file" ]; then
