@@ -23,6 +23,42 @@ cp .env.example .env
 # Edit .env with your API keys
 ```
 
+## 🤖 For Repository Maintainers: Claude Review Setup
+
+**Important**: To enable automated Claude code reviews on pull requests, repository maintainers need to configure the Anthropic API key:
+
+### Setting up Claude Review
+
+1. **Get an Anthropic API Key**:
+   - Visit [https://console.anthropic.com/](https://console.anthropic.com/)
+   - Create an account or sign in
+   - Navigate to API Keys section
+   - Create a new API key
+
+2. **Add to Repository Secrets**:
+   ```bash
+   # Go to your repository settings
+   https://github.com/your-username/gym-finder/settings/secrets/actions
+
+   # Add new repository secret:
+   # Name: ANTHROPIC_API_KEY
+   # Value: [your-anthropic-api-key]
+   ```
+
+3. **How Claude Review Works**:
+   - 🔍 Automatically reviews all pull requests
+   - 📝 Provides feedback on code quality, security, and best practices
+   - ✅ Runs alongside other CI/CD checks
+   - 💬 Posts review comments directly in the PR
+
+4. **Triggering Manual Reviews**:
+   ```bash
+   # Comment on any PR to trigger a manual review
+   @claude
+   ```
+
+**Note**: Without the API key configured, the `claude-review` check will fail. All other CI/CD checks will continue to work normally.
+
 ### 2. Run Tests
 
 ```bash
@@ -293,9 +329,17 @@ def example_function(param1, param2):
 
 ### Review Process
 1. **Automated checks**: CI pipeline validates code
+   - ✅ Unit tests across Python 3.8-3.11
+   - 🔒 Security scanning (Bandit + Safety)
+   - 🎨 Code formatting (Black + isort + flake8)
+   - ⚡ Performance tests
+   - 📚 Documentation checks
+   - 🤖 **Claude AI review** (code quality & best practices)
 2. **Manual review**: Maintainer reviews for quality
 3. **Testing**: Reviewer may test functionality
 4. **Approval**: PR approved and merged
+
+**Note**: If the `claude-review` check fails, ensure the repository has the `ANTHROPIC_API_KEY` configured (see setup section above).
 
 ## 🐛 Reporting Issues
 
