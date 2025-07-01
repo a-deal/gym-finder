@@ -8,8 +8,8 @@ Thank you for your interest in contributing to GymIntel! This guide will help yo
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/gym-finder.git
-cd gym-finder
+git clone https://github.com/your-username/gymintel-cli.git
+cd gymintel-cli
 
 # Install dependencies
 pip install -r requirements.txt
@@ -42,7 +42,7 @@ python3 tests/test_batch_processing.py
 2. **Add to Repository Secrets**:
    ```bash
    # Go to your repository settings
-   https://github.com/your-username/gym-finder/settings/secrets/actions
+   https://github.com/your-username/gymintel-cli/settings/secrets/actions
 
    # Add new repository secret:
    # Name: ANTHROPIC_API_KEY
@@ -140,7 +140,7 @@ git push origin feature/your-feature-name
 
 ### Code Organization
 ```
-gym-finder/
+gymintel-cli/
 ├── main.py                  # Entry point
 ├── src/
 │   ├── gym_finder.py        # Main application & confidence scoring

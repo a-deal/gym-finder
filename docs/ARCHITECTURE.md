@@ -3,7 +3,7 @@
 ## 📁 File Structure
 
 ```
-gym-finder/
+gymintel-cli/
 ├── main.py                  # Entry point
 ├── src/
 │   ├── gym_finder.py        # Main CLI application with confidence scoring

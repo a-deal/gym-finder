@@ -1,6 +1,8 @@
-# GymIntel - Advanced Gym Discovery Platform
+# GymIntel CLI - Advanced Gym Discovery Platform
 
-A powerful CLI tool delivering **comprehensive gym intelligence** through **multi-source data fusion** with **advanced confidence scoring**. Combines Yelp Fusion API and Google Places API (New) to provide the most complete gym discovery platform available.
+A powerful **command-line tool** delivering **comprehensive gym intelligence** through **multi-source data fusion** with **advanced confidence scoring**. Combines Yelp Fusion API and Google Places API (New) to provide the most complete gym discovery platform available.
+
+> **🌐 Web App Development**: This CLI tool is now complete and stable. We're developing a web application version at **[GymIntel-Web](https://github.com/a-deal/gymintel-web)** with interactive maps, data visualization, and persistent storage. [Learn more about the roadmap](#web-app-roadmap) below.
 
 ## Features
 
@@ -35,8 +37,8 @@ A powerful CLI tool delivering **comprehensive gym intelligence** through **mult
 
 1. **Clone the repository:**
 ```bash
-git clone https://github.com/a-deal/gym-finder.git
-cd gym-finder
+git clone https://github.com/a-deal/gymintel-cli.git
+cd gymintel-cli
 ```
 
 2. **Install dependencies:**
@@ -251,8 +253,8 @@ Contributions welcome! This project is actively developed.
 
 ### Development Setup
 ```bash
-git clone https://github.com/a-deal/gym-finder.git
-cd gym-finder
+git clone https://github.com/a-deal/gymintel-cli.git
+cd gymintel-cli
 pip install -r requirements.txt
 cp .env.example .env  # Add your API keys
 ```
@@ -270,8 +272,69 @@ cp .env.example .env  # Add your API keys
 - **Comprehensive error handling** with graceful fallbacks
 - **Performance optimized** with caching and rate limiting
 
+## 🌐 Web App Roadmap
+
+### **CLI Tool Status: Complete & Stable** ✅
+
+This command-line tool represents the complete Phase 1 & 2 implementation:
+- ✅ **Phase 1**: Multi-source data fusion with confidence scoring
+- ✅ **Phase 2**: Metropolitan intelligence with batch processing (6 metros, 400+ ZIP codes)
+
+### **Next Evolution: Web Application** 🚀
+
+We're developing a web application version at **[GymIntel-Web](https://github.com/a-deal/gymintel-web)** featuring:
+
+#### **Phase 3: Business Intelligence & Visualization**
+- 🗄️ **Persistent Database**: PostgreSQL with PostGIS for geographic queries
+- 🗺️ **Interactive Maps**: Real-time gym locations with confidence score overlays
+- 📊 **Data Visualization**: Charts, heatmaps, and trend analysis
+- 🔍 **Advanced Filtering**: Equipment, amenities, price ranges, hours
+- 📈 **Market Analytics**: Gap analysis, competitor mapping, demographic insights
+
+#### **Phase 4: Web Platform Features**
+- 🌐 **REST API**: Programmatic access to gym intelligence
+- 👤 **User Accounts**: Saved searches, preferences, alerts
+- 📱 **Mobile Responsive**: Progressive Web App (PWA)
+- 🔄 **Real-time Updates**: Live gym data with change notifications
+- 🤖 **AI Insights**: Personalized recommendations and market predictions
+
+### **Migration Path**
+
+**For Current CLI Users:**
+1. **Keep using this CLI tool** - it will remain fully supported
+2. **Export your data** using `--export json` for migration to web app
+3. **Try the web app** when available for enhanced visualization
+4. **API access** will be available for programmatic integration
+
+**For Contributors:**
+- **CLI improvements**: Continue contributing to this repository
+- **Web development**: Join development at [GymIntel-Web](https://github.com/a-deal/gymintel-web)
+- **Cross-project coordination**: Core algorithms are shared between both projects
+
+### **Why Fork the Project?**
+
+1. **Stability**: CLI tool remains stable and production-ready
+2. **Focus**: Web app can experiment with new tech stack without affecting CLI
+3. **User Choice**: Different users prefer different interfaces (CLI vs Web)
+4. **Deployment**: Separate deployment strategies (local CLI vs cloud web app)
+
+### **Timeline**
+
+- **Q1 2025**: Web app Phase 3 (Database + Visualization)
+- **Q2 2025**: Web app Phase 4 (Full platform features)
+- **Ongoing**: CLI maintenance and minor enhancements
+
 ---
 
-**GymIntel** - *From basic gym listing to advanced fitness intelligence* 🏋️‍♂️✨
+## 🤝 Project Ecosystem
 
-**License**: MIT | **Status**: Production Ready | **Coverage**: 70+ gyms per metropolitan area
+| Project | Purpose | Status | Best For |
+|---------|---------|--------|----------|
+| **[GymIntel CLI](https://github.com/a-deal/gymintel-cli)** | Command-line tool | ✅ Production | Scripts, automation, developers |
+| **[GymIntel-Web](https://github.com/a-deal/gymintel-web)** | Web application | 🚧 Development | Business users, visualization, analysis |
+
+---
+
+**GymIntel CLI** - *Comprehensive gym intelligence at your command line* 🏋️‍♂️✨
+
+**License**: MIT | **Status**: Production Ready | **Coverage**: 6 metros, 400+ ZIP codes | **Web Version**: Coming Soon
