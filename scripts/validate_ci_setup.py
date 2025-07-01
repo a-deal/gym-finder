@@ -4,6 +4,11 @@ CI/CD Setup Validation Script
 Validates that our CI/CD pipeline configuration is correct
 """
 
+<<<<<<< HEAD:scripts/validate_ci_setup.py
+=======
+import json
+import os
+>>>>>>> origin/main:validate_ci_setup.py
 from pathlib import Path
 
 import yaml
@@ -25,7 +30,11 @@ def validate_github_workflows():
         return False
 
     try:
+<<<<<<< HEAD:scripts/validate_ci_setup.py
         with open(ci_file) as f:
+=======
+        with open(ci_file, "r") as f:
+>>>>>>> origin/main:validate_ci_setup.py
             ci_config = yaml.safe_load(f)
 
         # Validate required sections (note: 'on' gets parsed as True in YAML)
@@ -66,7 +75,11 @@ def validate_pre_commit_config():
         return False
 
     try:
+<<<<<<< HEAD:scripts/validate_ci_setup.py
         with open(precommit_file) as f:
+=======
+        with open(precommit_file, "r") as f:
+>>>>>>> origin/main:validate_ci_setup.py
             precommit_config = yaml.safe_load(f)
 
         # Validate structure
@@ -132,7 +145,11 @@ def validate_pr_template():
         return False
 
     # Check minimum content
+<<<<<<< HEAD:scripts/validate_ci_setup.py
     with open(pr_template) as f:
+=======
+    with open(pr_template, "r") as f:
+>>>>>>> origin/main:validate_ci_setup.py
         content = f.read()
 
     required_sections = [
@@ -172,7 +189,11 @@ def validate_documentation():
 
     # Validate README minimum content
     readme_path = Path("README.md")
+<<<<<<< HEAD:scripts/validate_ci_setup.py
     with open(readme_path) as f:
+=======
+    with open(readme_path, "r") as f:
+>>>>>>> origin/main:validate_ci_setup.py
         readme_content = f.read()
 
     if len(readme_content) < 2000:  # Minimum characters
@@ -210,7 +231,11 @@ def validate_requirements():
         print("❌ requirements.txt not found")
         return False
 
+<<<<<<< HEAD:scripts/validate_ci_setup.py
     with open(requirements_file) as f:
+=======
+    with open(requirements_file, "r") as f:
+>>>>>>> origin/main:validate_ci_setup.py
         content = f.read()
 
     # Check for essential dependencies
@@ -245,7 +270,11 @@ def validate_env_example():
         print("✅ .env file exists")
 
         # Validate API keys are configured
+<<<<<<< HEAD:scripts/validate_ci_setup.py
         with open(env_file) as f:
+=======
+        with open(env_file, "r") as f:
+>>>>>>> origin/main:validate_ci_setup.py
             env_content = f.read()
 
         if "YELP_API_KEY" in env_content and "GOOGLE_PLACES_API_KEY" in env_content:
@@ -266,10 +295,15 @@ def run_integration_smoke_test():
         # Test imports
         from google_places_service import GooglePlacesService
         from gym_finder import GymFinder
+<<<<<<< HEAD:scripts/validate_ci_setup.py
+=======
+        from run_gym_search import run_gym_search
+>>>>>>> origin/main:validate_ci_setup.py
         from yelp_service import YelpService
 
         # Test instance creation
         gym_finder = GymFinder()
+<<<<<<< HEAD:scripts/validate_ci_setup.py
         YelpService("test_key")
         GooglePlacesService("test_key")
 
@@ -277,6 +311,15 @@ def run_integration_smoke_test():
         gym_finder.normalize_address("123 Test Street")
         gym_finder.normalize_phone("(555) 123-4567")
         gym_finder.token_based_name_similarity("Gym A", "Gym B")
+=======
+        yelp_service = YelpService("test_key")
+        google_service = GooglePlacesService("test_key")
+
+        # Test basic functionality
+        normalized = gym_finder.normalize_address("123 Test Street")
+        phone = gym_finder.normalize_phone("(555) 123-4567")
+        similarity = gym_finder.token_based_name_similarity("Gym A", "Gym B")
+>>>>>>> origin/main:validate_ci_setup.py
 
         print("✅ Integration smoke test passed")
         return True

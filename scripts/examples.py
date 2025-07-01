@@ -4,11 +4,14 @@ GymIntel Examples - Demonstrating specific features and capabilities
 """
 
 import json
+<<<<<<< HEAD:scripts/examples.py
 import os
 import sys
 
 # Add src directory to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+=======
+>>>>>>> origin/main:examples.py
 
 from google_places_service import GooglePlacesService
 from gym_finder import GymFinder

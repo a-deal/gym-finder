@@ -96,7 +96,7 @@ repos:
       - id: run-smoke-tests
         name: Run smoke tests
         entry: python3
-        args: [-c, "import sys, os; sys.path.insert(0, 'src'); from gym_finder import GymFinder; gf = GymFinder(); print('✅ Smoke tests passed')"]
+        args: [-c, "import sys, os; sys.path.insert(0, 'src'); from gym_finder import GymFinder; from yelp_service import YelpService; from google_places_service import GooglePlacesService; gf = GymFinder(); print('✅ Smoke tests passed')"]
         language: system
         pass_filenames: false
         always_run: true
