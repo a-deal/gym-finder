@@ -1074,7 +1074,9 @@ class GymFinder:
 
 
 @click.command()
-@click.option("--zipcode", "-z", required=True, help="ZIP code to search around")
+@click.option("--zipcode", "-z", help="Single ZIP code to search around")
+@click.option("--metro", "-m", help="Metropolitan area code (nyc, la, chicago, sf, boston, miami)")
+@click.option("--zipcodes", help="Comma-separated list of ZIP codes for batch processing")
 @click.option("--radius", "-r", default=10, help="Search radius in miles (default: 10)")
 @click.option(
     "--export",
@@ -1083,10 +1085,110 @@ class GymFinder:
     help="Export results to file (csv, json, or both)",
 )
 @click.option("--no-google", is_flag=True, help="Disable Google Places API (use only Yelp)")
-def main(zipcode, radius, export, no_google):
-    """GymIntel - Find gyms, Instagram handles, and membership fees by zipcode"""
-    finder = GymFinder()
-    finder.find_gyms(zipcode, radius, export, use_google=not no_google)
+@click.option("--workers", default=4, help="Number of parallel workers for batch processing (default: 4)")
+@click.option("--sample", type=int, help="Sample size for metro areas (for testing)")
+@click.option("--list-metros", is_flag=True, help="List available metropolitan areas")
+def main(zipcode, metro, zipcodes, radius, export, no_google, workers, sample, list_metros):
+    """
+    GymIntel - Advanced Gym Discovery Platform
+
+    Single ZIP: --zipcode 10001
+    Metro Area: --metro nyc
+    Batch: --zipcodes 10001,10003,10011
+    """
+
+    # Import here to avoid circular imports
+    from metro_areas import METROPOLITAN_AREAS, get_metro_summary
+    from run_gym_search import run_batch_search, run_metro_search
+
+    # Handle list metros command
+    if list_metros:
+        print("🏙️  Available Metropolitan Areas")
+        print("=" * 50)
+        summary = get_metro_summary()
+        for code, info in summary.items():
+            print(f"{code.upper():8} - {info['name']}")
+            print(
+                f"         {info['zip_count']} ZIP codes, {info['population']:,} people"
+                if info["population"]
+                else f"         {info['zip_count']} ZIP codes"
+            )
+            print(f"         Market: {', '.join(info['characteristics'])}")
+            print()
+        return
+
+    # Validate input - exactly one option must be provided
+    input_count = sum(bool(x) for x in [zipcode, metro, zipcodes])
+    if input_count == 0:
+        click.echo("❌ Error: Must specify --zipcode, --metro, or --zipcodes")
+        click.echo("Use --help for usage information or --list-metros to see available areas")
+        return
+    elif input_count > 1:
+        click.echo("❌ Error: Cannot specify multiple search types simultaneously")
+        click.echo("Choose one: --zipcode, --metro, or --zipcodes")
+        return
+
+    # Single ZIP code search (original functionality)
+    if zipcode:
+        finder = GymFinder()
+        finder.find_gyms(zipcode, radius, export, use_google=not no_google)
+        return
+
+    # Metropolitan area search
+    if metro:
+        if metro.lower() not in METROPOLITAN_AREAS:
+            click.echo(f"❌ Error: Unknown metropolitan area '{metro}'")
+            click.echo("Use --list-metros to see available areas")
+            return
+
+        results = run_metro_search(
+            metro_code=metro.lower(),
+            radius=radius,
+            export_format=export,
+            use_google=not no_google,
+            max_workers=workers,
+            sample_size=sample,
+        )
+
+        if "error" in results:
+            click.echo(f"❌ Error: {results['error']}")
+            return
+
+        # Display metro-level summary
+        stats = results["metro_info"]["statistics"]
+        click.echo(f"\n🏙️  {stats['metro_area_name']} Summary")
+        click.echo("=" * 50)
+        click.echo(f"📊 ZIP Codes: {stats['zip_codes_successful']}/{stats['zip_codes_processed']} processed")
+        click.echo(f"📊 Total Gyms: {stats['total_gyms_found']} found")
+        click.echo(f"📊 Merged: {stats['total_merged_gyms']} ({stats['overall_merge_rate']:.1f}%)")
+        click.echo(f"📊 Avg Confidence: {stats['average_confidence']:.1%}")
+        if "deduplicated_gym_count" in stats:
+            click.echo(f"📊 Metro Deduplication: {stats['duplication_rate']:.1f}% removed")
+        click.echo(f"📊 Avg per ZIP: {stats['gyms_per_zip']['average']:.1f} gyms")
+        return
+
+    # Batch ZIP codes search
+    if zipcodes:
+        zip_list = [z.strip() for z in zipcodes.split(",")]
+        if len(zip_list) < 2:
+            click.echo("❌ Error: Batch processing requires at least 2 ZIP codes")
+            return
+
+        results = run_batch_search(
+            zip_codes=zip_list, radius=radius, export_format=export, use_google=not no_google, max_workers=workers, quiet=False
+        )
+
+        # Display batch summary
+        successful = [r for r in results.values() if "error" not in r]
+        total_gyms = sum(len(r.get("gyms", [])) for r in successful)
+        total_merged = sum(r.get("search_info", {}).get("merged_count", 0) for r in successful)
+
+        click.echo(f"\n📊 Batch Processing Summary")
+        click.echo("=" * 50)
+        click.echo(f"📊 ZIP Codes: {len(successful)}/{len(zip_list)} successful")
+        click.echo(f"📊 Total Gyms: {total_gyms}")
+        click.echo(f"📊 Total Merged: {total_merged} ({total_merged/max(total_gyms,1)*100:.1f}%)")
+        return
 
 
 if __name__ == "__main__":
