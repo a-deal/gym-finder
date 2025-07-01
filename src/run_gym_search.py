@@ -10,8 +10,25 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Dict, List, Optional
 
+import requests
+from requests.exceptions import ConnectionError, Timeout
+from urllib3.exceptions import ReadTimeoutError
+
 from gym_finder import GymFinder
 from metro_areas import MetropolitanArea, get_metro_area
+
+
+def retry_api_call(func, max_retries=3, backoff_factor=1.0):
+    """Retry API calls with exponential backoff"""
+    for attempt in range(max_retries):
+        try:
+            return func()
+        except (ConnectionError, Timeout, ReadTimeoutError) as e:
+            if attempt == max_retries - 1:  # Last attempt
+                raise e
+            wait_time = backoff_factor * (2**attempt)
+            time.sleep(wait_time)
+    return None
 
 
 def run_gym_search(zipcode, radius=10, export_format=None, use_google=True, quiet=False):
@@ -233,18 +250,31 @@ def run_batch_search(
     start_time = time.time()
 
     def search_single_zip(zipcode: str) -> tuple:
-        """Search a single ZIP code and return results"""
-        try:
-            result = run_gym_search(
+        """Search a single ZIP code and return results with retry logic"""
+
+        def search_operation():
+            return run_gym_search(
                 zipcode=zipcode,
                 radius=radius,
                 export_format=None,  # Handle export at batch level
                 use_google=use_google,
                 quiet=True,  # Always quiet for individual searches
             )
+
+        try:
+            # Use retry logic for network-related errors
+            result = retry_api_call(search_operation, max_retries=3, backoff_factor=1.0)
             return zipcode, result, None
+        except (ConnectionError, Timeout, ReadTimeoutError) as e:
+            return zipcode, None, f"Network error for {zipcode} (after retries): {str(e)}"
+        except requests.exceptions.HTTPError as e:
+            return zipcode, None, f"API error for {zipcode}: HTTP {e.response.status_code}"
+        except KeyError as e:
+            return zipcode, None, f"Data parsing error for {zipcode}: Missing key {str(e)}"
+        except ValueError as e:
+            return zipcode, None, f"Invalid data for {zipcode}: {str(e)}"
         except Exception as e:
-            return zipcode, None, str(e)
+            return zipcode, None, f"Unexpected error for {zipcode}: {str(e)}"
 
     # Execute searches in parallel
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -304,7 +334,10 @@ def run_metro_search(
     # Get metropolitan area definition
     metro_area = get_metro_area(metro_code)
     if not metro_area:
-        return {"error": f"Unknown metropolitan area: {metro_code}"}
+        from metro_areas import list_metro_areas
+
+        available_metros = ", ".join(list_metro_areas())
+        return {"error": f"Unknown metropolitan area code '{metro_code}'. Available codes: {available_metros}"}
 
     zip_codes = metro_area.zip_codes
     if sample_size:
@@ -448,16 +481,20 @@ def deduplicate_metro_gyms(all_gyms: List[dict]) -> List[dict]:
         normalized_name = gym_finder.normalize_address(gym.get("name", "")).lower()
         normalized_address = gym_finder.normalize_address(gym.get("address", "")).lower()
 
+        # Import constants for deduplication
+        from gym_finder import ConfidenceThresholds
+
         # Create a signature combining name and address fragments
-        signature = f"{normalized_name[:20]}_{normalized_address[:30]}"
+        signature = f"{normalized_name[:ConfidenceThresholds.ADDRESS_SIGNATURE_LENGTH]}_{normalized_address[:ConfidenceThresholds.ADDRESS_FRAGMENT_LENGTH]}"
 
         # Check if we've seen a very similar gym
         is_duplicate = False
         for existing_sig in processed_names:
             # Simple similarity check - in production, could use more sophisticated matching
             if (
-                len(set(signature.split("_")[0]) & set(existing_sig.split("_")[0])) > 3
-                and len(set(signature.split("_")[1]) & set(existing_sig.split("_")[1])) > 5
+                len(set(signature.split("_")[0]) & set(existing_sig.split("_")[0])) > ConfidenceThresholds.DEDUP_NAME_CHARS_MIN
+                and len(set(signature.split("_")[1]) & set(existing_sig.split("_")[1]))
+                > ConfidenceThresholds.DEDUP_ADDRESS_CHARS_MIN
             ):
                 is_duplicate = True
                 break

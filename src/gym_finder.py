@@ -28,6 +28,35 @@ from yelp_service import YelpService
 load_dotenv()
 
 
+# Confidence Scoring Constants
+class ConfidenceThresholds:
+    """Constants for confidence scoring algorithm"""
+
+    # Review count correlation thresholds
+    REVIEW_VERY_SIMILAR = 0.8  # 80%+ correlation
+    REVIEW_GOOD = 0.6  # Good correlation
+    REVIEW_MODERATE = 0.4  # Moderate correlation
+    REVIEW_WEAK = 0.2  # Weak but plausible correlation
+
+    # Review count correlation scores
+    REVIEW_SCORE_STRONG = 0.12  # Strong correlation bonus
+    REVIEW_SCORE_GOOD = 0.08  # Good correlation bonus
+    REVIEW_SCORE_MODERATE = 0.05  # Moderate correlation bonus
+    REVIEW_SCORE_WEAK = 0.02  # Weak correlation bonus
+    REVIEW_SCORE_SMALL_BIZ = 0.03  # Small business bonus
+
+    # Small business threshold
+    SMALL_BUSINESS_REVIEW_COUNT = 10
+
+    # Deduplication algorithm constants
+    DEDUP_NAME_CHARS_MIN = 3  # Minimum name character overlap
+    DEDUP_ADDRESS_CHARS_MIN = 5  # Minimum address character overlap
+
+    # Address normalization constants
+    ADDRESS_SIGNATURE_LENGTH = 20  # Name signature length
+    ADDRESS_FRAGMENT_LENGTH = 30  # Address fragment length
+
+
 class GymFinder:
     def __init__(self):
         self.yelp_api_key = os.getenv("YELP_API_KEY")
@@ -81,18 +110,18 @@ class GymFinder:
         ratio = smaller / larger
 
         # Review count correlation scoring with fitness business context
-        if ratio > 0.8:  # Very similar review counts (80%+ correlation)
-            return 0.12  # Strong correlation
-        elif ratio > 0.6:  # Good correlation
-            return 0.08
-        elif ratio > 0.4:  # Moderate correlation
-            return 0.05
-        elif ratio > 0.2:  # Weak but plausible correlation
-            return 0.02
+        if ratio > ConfidenceThresholds.REVIEW_VERY_SIMILAR:
+            return ConfidenceThresholds.REVIEW_SCORE_STRONG
+        elif ratio > ConfidenceThresholds.REVIEW_GOOD:
+            return ConfidenceThresholds.REVIEW_SCORE_GOOD
+        elif ratio > ConfidenceThresholds.REVIEW_MODERATE:
+            return ConfidenceThresholds.REVIEW_SCORE_MODERATE
+        elif ratio > ConfidenceThresholds.REVIEW_WEAK:
+            return ConfidenceThresholds.REVIEW_SCORE_WEAK
 
         # Special case: both have very few reviews (new businesses)
-        if larger <= 10:
-            return 0.03  # Small business bonus
+        if larger <= ConfidenceThresholds.SMALL_BUSINESS_REVIEW_COUNT:
+            return ConfidenceThresholds.REVIEW_SCORE_SMALL_BIZ
 
         return 0.0
 
