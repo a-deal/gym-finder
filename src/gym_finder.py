@@ -22,8 +22,13 @@ from difflib import SequenceMatcher
 import math
 
 # Import our service modules
-from .yelp_service import YelpService
-from .google_places_service import GooglePlacesService
+try:
+    from .yelp_service import YelpService
+    from .google_places_service import GooglePlacesService
+except ImportError:
+    # For direct execution and testing
+    from yelp_service import YelpService
+    from google_places_service import GooglePlacesService
 
 load_dotenv()
 
@@ -147,6 +152,167 @@ class GymFinder:
             return 1.0  # Exact price match
         elif yelp_level and abs(yelp_level - google_price_level) == 1:
             return 0.5  # Close price match
+        
+        return 0.0
+
+    def compare_review_counts(self, yelp_count, google_count):
+        """Intelligent review count correlation for business matching"""
+        if not yelp_count or not google_count:
+            return 0.0
+        
+        # Convert to numbers if they're strings
+        try:
+            yelp_num = int(yelp_count)
+            google_num = int(google_count)
+        except (ValueError, TypeError):
+            return 0.0
+        
+        if yelp_num <= 0 or google_num <= 0:
+            return 0.0
+        
+        # Calculate ratio (smaller/larger)
+        larger = max(yelp_num, google_num)
+        smaller = min(yelp_num, google_num)
+        ratio = smaller / larger
+        
+        # Review count correlation scoring with fitness business context
+        if ratio > 0.8:  # Very similar review counts (80%+ correlation)
+            return 0.12  # Strong correlation
+        elif ratio > 0.6:  # Good correlation
+            return 0.08
+        elif ratio > 0.4:  # Moderate correlation
+            return 0.05
+        elif ratio > 0.2:  # Weak but plausible correlation
+            return 0.02
+        
+        # Special case: both have very few reviews (new businesses)
+        if larger <= 10:
+            return 0.03  # Small business bonus
+        
+        return 0.0
+
+    def assess_website_quality(self, yelp_url, google_website):
+        """Assess website quality and business legitimacy indicators"""
+        confidence = 0.0
+        
+        # Google website analysis
+        if google_website and google_website != 'N/A':
+            # Real business website (not just Google Maps)
+            if 'maps.google.com' not in google_website.lower():
+                confidence += 0.04  # Has actual business website
+                
+                # Professional domain indicators
+                business_domains = ['.com', '.net', '.org', '.biz']
+                fitness_domains = ['.fitness', '.gym', '.health', '.wellness']
+                
+                if any(domain in google_website.lower() for domain in fitness_domains):
+                    confidence += 0.03  # Fitness-specific domain
+                elif any(domain in google_website.lower() for domain in business_domains):
+                    confidence += 0.02  # Professional domain
+                
+                # HTTPS indicator (modern, professional websites)
+                if google_website.lower().startswith('https://'):
+                    confidence += 0.01  # Secure website
+        
+        # Yelp presence analysis
+        if yelp_url and 'yelp.com/biz/' in yelp_url:
+            confidence += 0.02  # Established Yelp presence
+            
+            # Check for rich Yelp profile indicators
+            if len(yelp_url) > 50:  # Longer URLs often indicate more complete profiles
+                confidence += 0.01  # Detailed Yelp profile
+        
+        return confidence
+
+    def semantic_category_mapping(self, yelp_categories, google_types):
+        """Phase 2: Advanced semantic category mapping for fitness businesses"""
+        if not yelp_categories or not google_types:
+            return 0.0
+        
+        # Enhanced fitness business taxonomy
+        fitness_taxonomy = {
+            'traditional_gym': {
+                'yelp_terms': ['gym', 'fitness', 'health club', 'fitness center'],
+                'google_types': ['gym', 'health', 'establishment', 'point_of_interest'],
+                'weight': 1.0
+            },
+            'boutique_studio': {
+                'yelp_terms': ['studio', 'boutique', 'pilates', 'yoga', 'barre'],
+                'google_types': ['gym', 'health', 'spa', 'point_of_interest'],
+                'weight': 0.9
+            },
+            'martial_arts': {
+                'yelp_terms': ['martial arts', 'karate', 'kung fu', 'boxing', 'mma', 'jiu jitsu'],
+                'google_types': ['gym', 'health', 'establishment'],
+                'weight': 0.8
+            },
+            'dance_fitness': {
+                'yelp_terms': ['dance', 'zumba', 'ballet', 'dance fitness'],
+                'google_types': ['gym', 'health', 'establishment', 'school'],
+                'weight': 0.7
+            },
+            'specialized_training': {
+                'yelp_terms': ['training', 'personal training', 'crossfit', 'bootcamp'],
+                'google_types': ['gym', 'health', 'establishment'],
+                'weight': 0.8
+            },
+            'wellness_center': {
+                'yelp_terms': ['wellness', 'rehabilitation', 'physical therapy', 'massage'],
+                'google_types': ['health', 'physiotherapist', 'spa', 'doctor'],
+                'weight': 0.6
+            }
+        }
+        
+        yelp_lower = yelp_categories.lower()
+        google_lower = [t.lower() for t in google_types]
+        
+        best_match_score = 0.0
+        
+        for category, mapping in fitness_taxonomy.items():
+            yelp_match = any(term in yelp_lower for term in mapping['yelp_terms'])
+            google_match = any(gtype in google_lower for gtype in mapping['google_types'])
+            
+            if yelp_match and google_match:
+                match_strength = len([term for term in mapping['yelp_terms'] if term in yelp_lower])
+                google_strength = len([gtype for gtype in mapping['google_types'] if gtype in google_lower])
+                
+                # Combined semantic similarity score
+                category_score = mapping['weight'] * (match_strength + google_strength) / 10
+                best_match_score = max(best_match_score, category_score)
+        
+        return min(best_match_score, 0.15)  # Cap at 15% bonus
+
+    def enhanced_phone_matching(self, yelp_phone, google_phone):
+        """Enhanced phone number matching with partial matching intelligence"""
+        if not yelp_phone or not google_phone or yelp_phone == 'N/A' or google_phone == 'N/A':
+            return 0.0
+        
+        yelp_normalized = self.normalize_phone(yelp_phone)
+        google_normalized = self.normalize_phone(google_phone)
+        
+        if not yelp_normalized or not google_normalized:
+            return 0.0
+        
+        # Exact match - highest confidence
+        if yelp_normalized == google_normalized:
+            return 0.25  # Strong phone match bonus
+        
+        # Partial matching for different formats
+        if len(yelp_normalized) >= 7 and len(google_normalized) >= 7:
+            # Check last 7 digits (local number)
+            yelp_local = yelp_normalized[-7:]
+            google_local = google_normalized[-7:]
+            
+            if yelp_local == google_local:
+                return 0.15  # Local number match
+            
+            # Check last 4 digits (exchange + number)
+            if len(yelp_normalized) >= 4 and len(google_normalized) >= 4:
+                yelp_suffix = yelp_normalized[-4:]
+                google_suffix = google_normalized[-4:]
+                
+                if yelp_suffix == google_suffix:
+                    return 0.08  # Partial phone match
         
         return 0.0
 
@@ -385,6 +551,15 @@ class GymFinder:
         ]
         
         for pattern in location_patterns:
+            cleaned = re.sub(pattern, '', cleaned)
+        
+        # Remove common gym suffixes
+        gym_suffixes = [
+            r'\s+gym$', r'\s+fitness$', r'\s+center$', r'\s+studio$',
+            r'\s+club$', r'\s+health$', r'\s+wellness$'
+        ]
+        
+        for pattern in gym_suffixes:
             cleaned = re.sub(pattern, '', cleaned)
         
         return cleaned.strip()
