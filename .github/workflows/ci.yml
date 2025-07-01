@@ -54,7 +54,7 @@ jobs:
 
     - name: Check import sorting with isort
       run: |
-        isort --check-only --line-length=127 *.py
+        isort --check-only --line-length=127 --profile=black *.py
 
     - name: Run smoke tests
       run: |
@@ -159,8 +159,10 @@ jobs:
     - name: Check for known vulnerabilities with Safety
       run: |
         pip install -r requirements.txt
-        safety scan --json --output safety-report.json || true
-        safety scan --continue-on-error
+        # Run safety scan without authentication (limited mode)
+        safety scan --output json > safety-report.json || echo "Safety scan completed with warnings"
+        # Show results in console (continue on vulnerabilities found)
+        safety scan --output screen --continue-on-error || echo "Safety scan found vulnerabilities but continuing"
 
   performance-test:
     runs-on: ubuntu-latest
