@@ -1,5 +1,12 @@
-# Pre-commit hooks for GymIntel
+# Pre-commit hooks for GymIntel with Auto-Fixing
 # Install with: pip install pre-commit && pre-commit install
+#
+# 🔧 Auto-fixing workflow:
+# 1. File cleanup (whitespace, line endings)
+# 2. Code formatting (black, isort)
+# 3. Auto-fix issues (autoflake, pyupgrade)
+# 4. Quality checks (flake8, bandit)
+# 5. Project validation (smoke tests, performance)
 
 repos:
   # General file checks (run first)
@@ -32,7 +39,21 @@ repos:
         args: [--line-length=127, --profile=black]
         files: \.py$
 
-  # Python linting (run after formatting)
+  # Auto-fixing linters (run after formatting)
+  - repo: https://github.com/pycqa/autoflake
+    rev: v2.2.1
+    hooks:
+      - id: autoflake
+        name: Remove unused imports and variables
+        args:
+          - --in-place
+          - --remove-all-unused-imports
+          - --remove-unused-variables
+          - --remove-duplicate-keys
+          - --ignore-init-module-imports
+        files: \.py$
+
+  # Python linting (run after auto-fixes)
   - repo: https://github.com/pycqa/flake8
     rev: 7.0.0
     hooks:
@@ -48,13 +69,26 @@ repos:
         files: \.py$
         exclude: test_.*\.py$  # Skip test files
 
-  # Additional file format checks
+  # Auto-fix Python code quality issues
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.15.0
+    hooks:
+      - id: pyupgrade
+        name: Upgrade Python syntax
+        args: [--py38-plus]  # Target Python 3.8+
+        files: \.py$
+
+
+  # Additional file format checks and auto-fixes
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
       - id: pretty-format-json
         args: [--autofix, --indent=2]
       - id: check-docstring-first
+      - id: fix-byte-order-marker
+      - id: mixed-line-ending
+        args: [--fix=lf]
 
   # Custom local hooks
   - repo: local
