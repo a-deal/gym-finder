@@ -3,10 +3,32 @@
 Script Runner for GymIntel - Execute gym searches programmatically
 """
 
+import json
 import sys
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
+from typing import Dict, List, Optional
+
+import requests
+from requests.exceptions import ConnectionError, Timeout
+from urllib3.exceptions import ReadTimeoutError
 
 from gym_finder import GymFinder
+from metro_areas import MetropolitanArea, get_metro_area
+
+
+def retry_api_call(func, max_retries=3, backoff_factor=1.0):
+    """Retry API calls with exponential backoff"""
+    for attempt in range(max_retries):
+        try:
+            return func()
+        except (ConnectionError, Timeout, ReadTimeoutError) as e:
+            if attempt == max_retries - 1:  # Last attempt
+                raise e
+            wait_time = backoff_factor * (2**attempt)
+            time.sleep(wait_time)
+    return None
 
 
 def run_gym_search(zipcode, radius=10, export_format=None, use_google=True, quiet=False):
@@ -193,6 +215,338 @@ def main():
     print(f"Overall merge rate: {total_merged/max(total_gyms, 1):.1%}")
 
     return multiple_results
+
+
+def run_batch_search(
+    zip_codes: List[str],
+    radius: int = 10,
+    export_format: Optional[str] = None,
+    use_google: bool = True,
+    max_workers: int = 4,
+    quiet: bool = False,
+) -> Dict[str, dict]:
+    """
+    Run gym searches for multiple ZIP codes in parallel
+
+    Args:
+        zip_codes: List of ZIP codes to search
+        radius: Search radius in miles
+        export_format: Export format ('csv', 'json', 'both', or None)
+        use_google: Whether to use Google Places API
+        max_workers: Maximum number of parallel workers
+        quiet: Whether to suppress individual search output
+
+    Returns:
+        Dict mapping ZIP codes to their search results
+    """
+    if not quiet:
+        print(f"🚀 Starting batch search for {len(zip_codes)} ZIP codes")
+        print(f"⚙️  Using {max_workers} parallel workers")
+        print(f"📍 Search radius: {radius} miles")
+        print("=" * 60)
+
+    batch_results = {}
+    completed_count = 0
+    start_time = time.time()
+
+    def search_single_zip(zipcode: str) -> tuple:
+        """Search a single ZIP code and return results with retry logic"""
+
+        def search_operation():
+            return run_gym_search(
+                zipcode=zipcode,
+                radius=radius,
+                export_format=None,  # Handle export at batch level
+                use_google=use_google,
+                quiet=True,  # Always quiet for individual searches
+            )
+
+        try:
+            # Use retry logic for network-related errors
+            result = retry_api_call(search_operation, max_retries=3, backoff_factor=1.0)
+            return zipcode, result, None
+        except (ConnectionError, Timeout, ReadTimeoutError) as e:
+            return zipcode, None, f"Network error for {zipcode} (after retries): {str(e)}"
+        except requests.exceptions.HTTPError as e:
+            return zipcode, None, f"API error for {zipcode}: HTTP {e.response.status_code}"
+        except KeyError as e:
+            return zipcode, None, f"Data parsing error for {zipcode}: Missing key {str(e)}"
+        except ValueError as e:
+            return zipcode, None, f"Invalid data for {zipcode}: {str(e)}"
+        except Exception as e:
+            return zipcode, None, f"Unexpected error for {zipcode}: {str(e)}"
+
+    # Execute searches in parallel
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all jobs
+        future_to_zipcode = {executor.submit(search_single_zip, zipcode): zipcode for zipcode in zip_codes}
+
+        # Process completed jobs
+        for future in as_completed(future_to_zipcode):
+            zipcode, result, error = future.result()
+            completed_count += 1
+
+            if error:
+                if not quiet:
+                    print(f"❌ {zipcode}: {error}")
+                batch_results[zipcode] = {"error": error, "results": []}
+            else:
+                if not quiet:
+                    gyms_count = len(result.get("gyms", []))
+                    merged_count = result.get("search_info", {}).get("merged_count", 0)
+                    print(f"✅ {zipcode}: {gyms_count} gyms ({merged_count} merged) - " f"[{completed_count}/{len(zip_codes)}]")
+                batch_results[zipcode] = result
+
+    elapsed_time = time.time() - start_time
+
+    if not quiet:
+        print("=" * 60)
+        print(f"🎉 Batch search completed in {elapsed_time:.1f} seconds")
+        print(f"✅ Successful: {len([r for r in batch_results.values() if 'error' not in r])}")
+        print(f"❌ Failed: {len([r for r in batch_results.values() if 'error' in r])}")
+
+    return batch_results
+
+
+def run_metro_search(
+    metro_code: str,
+    radius: int = 10,
+    export_format: Optional[str] = None,
+    use_google: bool = True,
+    max_workers: int = 4,
+    sample_size: Optional[int] = None,
+) -> Dict[str, any]:
+    """
+    Run gym search for an entire metropolitan area
+
+    Args:
+        metro_code: Metropolitan area code (e.g., 'nyc', 'la', 'chicago')
+        radius: Search radius in miles
+        export_format: Export format ('csv', 'json', 'both', or None)
+        use_google: Whether to use Google Places API
+        max_workers: Maximum number of parallel workers
+        sample_size: Limit to N ZIP codes for testing (None = all)
+
+    Returns:
+        Dict with metro area results and aggregated statistics
+    """
+
+    # Get metropolitan area definition
+    metro_area = get_metro_area(metro_code)
+    if not metro_area:
+        from metro_areas import list_metro_areas
+
+        available_metros = ", ".join(list_metro_areas())
+        return {"error": f"Unknown metropolitan area code '{metro_code}'. Available codes: {available_metros}"}
+
+    zip_codes = metro_area.zip_codes
+    if sample_size:
+        zip_codes = zip_codes[:sample_size]
+        print(f"🧪 Sample mode: Processing {sample_size} of {len(metro_area.zip_codes)} ZIP codes")
+
+    print(f"🏙️  {metro_area.name} Metropolitan Area Analysis")
+    print(f"📊 Population: {metro_area.population:,}" if metro_area.population else "")
+    print(f"📊 Market: {', '.join(metro_area.market_characteristics[:3])}")
+    print(f"📊 Processing {len(zip_codes)} ZIP codes")
+
+    # Run batch search
+    batch_results = run_batch_search(
+        zip_codes=zip_codes,
+        radius=radius,
+        export_format=None,  # Handle at metro level
+        use_google=use_google,
+        max_workers=max_workers,
+        quiet=False,
+    )
+
+    # Generate metropolitan area aggregated statistics
+    metro_stats = generate_metro_statistics(metro_area, batch_results)
+
+    # Combine all gym data for cross-metro duplicate detection
+    all_gyms = []
+    for zipcode, result in batch_results.items():
+        if "gyms" in result:
+            for gym in result["gyms"]:
+                gym["source_zipcode"] = zipcode  # Track origin
+                all_gyms.append(gym)
+
+    # Deduplicate across the entire metropolitan area
+    if len(all_gyms) > 0:
+        print(f"\n🔗 Performing metropolitan-wide deduplication...")
+        deduplicated_gyms = deduplicate_metro_gyms(all_gyms)
+        metro_stats["deduplicated_gym_count"] = len(deduplicated_gyms)
+        metro_stats["duplication_rate"] = (len(all_gyms) - len(deduplicated_gyms)) / len(all_gyms) * 100
+        print(f"🔗 Removed {len(all_gyms) - len(deduplicated_gyms)} duplicates across metro area")
+        print(f"🔗 Metro duplication rate: {metro_stats['duplication_rate']:.1f}%")
+    else:
+        deduplicated_gyms = []
+        metro_stats["deduplicated_gym_count"] = 0
+        metro_stats["duplication_rate"] = 0
+
+    # Prepare final results
+    metro_results = {
+        "metro_info": {
+            "area": metro_area,
+            "search_params": {
+                "radius": radius,
+                "use_google": use_google,
+                "zip_codes_processed": len(zip_codes),
+                "timestamp": datetime.now().isoformat(),
+            },
+            "statistics": metro_stats,
+        },
+        "zip_results": batch_results,
+        "all_gyms": deduplicated_gyms,
+    }
+
+    # Export if requested
+    if export_format:
+        export_metro_results(metro_results, metro_code, export_format)
+
+    return metro_results
+
+
+def generate_metro_statistics(metro_area: MetropolitanArea, batch_results: Dict[str, dict]) -> Dict[str, any]:
+    """Generate aggregated statistics for metropolitan area"""
+
+    successful_searches = [r for r in batch_results.values() if "gyms" in r]
+    failed_searches = [r for r in batch_results.values() if "error" in r]
+
+    if not successful_searches:
+        return {"error": "No successful searches to analyze"}
+
+    # Aggregate gym counts
+    total_gyms = sum(len(result["gyms"]) for result in successful_searches)
+    total_merged = sum(result.get("search_info", {}).get("merged_count", 0) for result in successful_searches)
+
+    # Calculate confidence distribution
+    all_confidences = []
+    for result in successful_searches:
+        for gym in result["gyms"]:
+            if gym.get("match_confidence", 0) > 0:
+                all_confidences.append(gym["match_confidence"])
+
+    avg_confidence = sum(all_confidences) / len(all_confidences) if all_confidences else 0
+
+    # Source distribution
+    source_counts = {"Yelp": 0, "Google Places": 0, "Merged": 0}
+    for result in successful_searches:
+        for gym in result["gyms"]:
+            if "Merged" in gym.get("source", ""):
+                source_counts["Merged"] += 1
+            elif "Yelp" in gym.get("source", ""):
+                source_counts["Yelp"] += 1
+            elif "Google" in gym.get("source", ""):
+                source_counts["Google Places"] += 1
+
+    # ZIP code density analysis
+    gyms_per_zip = [len(result["gyms"]) for result in successful_searches]
+    avg_gyms_per_zip = sum(gyms_per_zip) / len(gyms_per_zip) if gyms_per_zip else 0
+    max_gyms_zip = max(gyms_per_zip) if gyms_per_zip else 0
+    min_gyms_zip = min(gyms_per_zip) if gyms_per_zip else 0
+
+    return {
+        "metro_area_name": metro_area.name,
+        "zip_codes_total": len(metro_area.zip_codes),
+        "zip_codes_processed": len(batch_results),
+        "zip_codes_successful": len(successful_searches),
+        "zip_codes_failed": len(failed_searches),
+        "total_gyms_found": total_gyms,
+        "total_merged_gyms": total_merged,
+        "overall_merge_rate": (total_merged / total_gyms * 100) if total_gyms > 0 else 0,
+        "average_confidence": avg_confidence,
+        "source_distribution": source_counts,
+        "gyms_per_zip": {"average": avg_gyms_per_zip, "maximum": max_gyms_zip, "minimum": min_gyms_zip},
+        "market_characteristics": metro_area.market_characteristics,
+        "density_category": metro_area.density_category,
+    }
+
+
+def deduplicate_metro_gyms(all_gyms: List[dict]) -> List[dict]:
+    """
+    Remove duplicates across the entire metropolitan area
+    Uses name and address similarity to detect cross-ZIP duplicates
+    """
+    if not all_gyms:
+        return []
+
+    # Import here to avoid circular imports
+    gym_finder = GymFinder()
+
+    deduplicated = []
+    processed_names = set()
+
+    for gym in all_gyms:
+        # Create a normalized signature for duplicate detection
+        normalized_name = gym_finder.normalize_address(gym.get("name", "")).lower()
+        normalized_address = gym_finder.normalize_address(gym.get("address", "")).lower()
+
+        # Import constants for deduplication
+        from gym_finder import ConfidenceThresholds
+
+        # Create a signature combining name and address fragments
+        signature = f"{normalized_name[:ConfidenceThresholds.ADDRESS_SIGNATURE_LENGTH]}_{normalized_address[:ConfidenceThresholds.ADDRESS_FRAGMENT_LENGTH]}"
+
+        # Check if we've seen a very similar gym
+        is_duplicate = False
+        for existing_sig in processed_names:
+            # Simple similarity check - in production, could use more sophisticated matching
+            if (
+                len(set(signature.split("_")[0]) & set(existing_sig.split("_")[0])) > ConfidenceThresholds.DEDUP_NAME_CHARS_MIN
+                and len(set(signature.split("_")[1]) & set(existing_sig.split("_")[1]))
+                > ConfidenceThresholds.DEDUP_ADDRESS_CHARS_MIN
+            ):
+                is_duplicate = True
+                break
+
+        if not is_duplicate:
+            processed_names.add(signature)
+            deduplicated.append(gym)
+
+    return deduplicated
+
+
+def export_metro_results(metro_results: Dict[str, any], metro_code: str, export_format: str):
+    """Export metropolitan area results to file(s)"""
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    if export_format in ["json", "both"]:
+        filename = f"metro_{metro_code}_{timestamp}.json"
+
+        # Prepare JSON-serializable data
+        export_data = {
+            "metro_info": {
+                "area_name": metro_results["metro_info"]["area"].name,
+                "area_code": metro_code,
+                "population": metro_results["metro_info"]["area"].population,
+                "market_characteristics": metro_results["metro_info"]["area"].market_characteristics,
+                "search_params": metro_results["metro_info"]["search_params"],
+                "statistics": metro_results["metro_info"]["statistics"],
+            },
+            "gyms": metro_results["all_gyms"],
+            "zip_results_summary": {
+                zipcode: {
+                    "gym_count": len(result.get("gyms", [])),
+                    "merged_count": result.get("search_info", {}).get("merged_count", 0),
+                    "error": result.get("error"),
+                }
+                for zipcode, result in metro_results["zip_results"].items()
+            },
+        }
+
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(export_data, f, indent=2, ensure_ascii=False, default=str)
+
+        print(f"📁 Metro JSON exported to: {filename}")
+
+    if export_format in ["csv", "both"]:
+        filename = f"metro_{metro_code}_{timestamp}.csv"
+
+        # Use existing CSV export but with metro data
+        gym_finder = GymFinder()
+        csv_filename = gym_finder.export_to_csv(metro_results["all_gyms"], f"metro_{metro_code}")
+        print(f"📁 Metro CSV exported to: {csv_filename}")
 
 
 if __name__ == "__main__":

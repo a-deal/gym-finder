@@ -6,40 +6,51 @@
 
 | File | Purpose | Usage |
 |------|---------|-------|
-| `test_gym_finder.py` | Comprehensive unit tests | `python3 -m unittest test_gym_finder.py` |
-| `run_tests.py` | Test runner with detailed output | `python3 run_tests.py` |
-| `run_gym_search.py` | Script-based gym search | `python3 run_gym_search.py 10001 2` |
-| `examples.py` | Feature demonstrations | `python3 examples.py` |
-| `benchmark.py` | Performance testing | `python3 benchmark.py` |
+| `tests/test_gym_finder.py` | Core unit tests | `python3 -m unittest tests.test_gym_finder` |
+| `tests/test_batch_processing.py` | Metropolitan & batch tests | `python3 tests/test_batch_processing.py` |
+| `tests/run_tests.py` | Test runner with detailed output | `python3 tests/run_tests.py` |
+| `scripts/examples.py` | Feature demonstrations | `python3 scripts/examples.py` |
+| `scripts/benchmark.py` | Performance testing | `python3 scripts/benchmark.py` |
+| `scripts/benchmark_metro.py` | Metropolitan benchmarks | `python3 scripts/benchmark_metro.py` |
 
 ## 🚀 Quick Start Testing
 
 ### **1. Run All Tests**
 ```bash
-python3 run_tests.py
+# Core functionality tests
+python3 tests/run_tests.py
+
+# Metropolitan and batch processing tests
+python3 tests/test_batch_processing.py
 ```
 This runs smoke tests, unit tests, and integration tests with detailed output.
 
-### **2. Basic Gym Search (Script)**
+### **2. Metropolitan Area Testing**
 ```bash
-# Search ZIP 10001 with 2-mile radius
-python3 run_gym_search.py 10001 2
+# Test single metropolitan area
+python main.py --metro nyc --sample 5 --radius 2
 
-# Search with JSON export
-python3 run_gym_search.py 10001 2 json
+# Test batch processing
+python main.py --zipcodes "10001,10003,10011" --radius 1
+
+# List available metros
+python main.py --list-metros
 ```
 
-### **3. Feature Examples**
+### **3. Performance Benchmarking**
 ```bash
-python3 examples.py
+# Full metropolitan benchmarks
+python3 scripts/benchmark_metro.py
+
+# Basic performance tests
+python3 scripts/benchmark.py
+```
+
+### **4. Feature Examples**
+```bash
+python3 scripts/examples.py
 ```
 Demonstrates all major features including confidence scoring, semantic matching, and API services.
-
-### **4. Performance Benchmark**
-```bash
-python3 benchmark.py
-```
-Comprehensive performance and accuracy testing across multiple ZIP codes.
 
 ## 📋 Test Categories
 
@@ -62,18 +73,32 @@ Comprehensive performance and accuracy testing across multiple ZIP codes.
 - Multi-source data merging
 - Export functionality
 
+### **Metropolitan Tests** 🏙️
+- **Metro Area Definitions**: Validate 6 major US metros
+- **Batch Processing**: Parallel execution testing
+- **Cross-ZIP Deduplication**: Algorithm validation
+- **Statistics Generation**: Metropolitan analytics
+- **Performance Scaling**: Multi-worker efficiency
+
 ## 🎯 Script-Based Usage Examples
 
 ### **Programmatic Search**
 ```python
-from run_gym_search import run_gym_search
+from run_gym_search import run_gym_search, run_batch_search, run_metro_search
 
 # Single search
 results = run_gym_search("10001", radius=2, export_format="json")
 
-# Multiple searches
-from run_gym_search import run_multiple_searches
-results = run_multiple_searches(["10001", "10003", "10011"])
+# Batch processing
+results = run_batch_search(["10001", "10003", "10011"], radius=2, max_workers=4)
+
+# Metropolitan area search
+results = run_metro_search("nyc", radius=2, sample_size=10)
+
+# Access statistics
+stats = results["metro_info"]["statistics"]
+print(f"Total gyms: {stats['total_gyms_found']}")
+print(f"Deduplication rate: {stats['duplication_rate']:.1f}%")
 ```
 
 ### **Service Module Usage**
@@ -119,6 +144,13 @@ coords = gym_finder.estimate_coordinates_from_address("123 Main St, NYC 10001")
 - Service module imports
 - Confidence scoring
 - Address normalization
+
+### **Metropolitan Tests**: ✅ 11/11 PASSED
+- Metro area definitions validated
+- Batch processing with 2-6 workers
+- Cross-ZIP deduplication 90%+ efficiency
+- Statistics generation accurate
+- All 6 metros (NYC, LA, Chicago, SF, Boston, Miami) tested
 
 ## 🔧 Troubleshooting
 

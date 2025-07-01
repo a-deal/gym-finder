@@ -21,6 +21,10 @@ pre-commit install
 # Configure API keys
 cp .env.example .env
 # Edit .env with your API keys
+
+# Run tests to verify setup
+python3 tests/run_tests.py
+python3 tests/test_batch_processing.py
 ```
 
 ## 🤖 For Repository Maintainers: Claude Review Setup
@@ -118,6 +122,7 @@ git push origin feature/your-feature-name
 - Enhanced confidence scoring methods
 - New export formats
 - Performance optimizations
+- Metropolitan area additions (see section below)
 
 ### 📚 Documentation
 - Improve README and guides
@@ -136,13 +141,19 @@ git push origin feature/your-feature-name
 ### Code Organization
 ```
 gym-finder/
-├── gym_finder.py          # Main application & confidence scoring
-├── yelp_service.py         # Yelp API integration
-├── google_places_service.py # Google Places API integration
-├── test_gym_finder.py      # Unit tests
-├── run_gym_search.py       # Script-based execution
-├── examples.py             # Feature demonstrations
-└── benchmark.py            # Performance testing
+├── main.py                  # Entry point
+├── src/
+│   ├── gym_finder.py        # Main application & confidence scoring
+│   ├── yelp_service.py      # Yelp API integration
+│   ├── google_places_service.py # Google Places API integration
+│   ├── run_gym_search.py    # Batch processing & programmatic API
+│   └── metro_areas.py       # Metropolitan area definitions
+├── tests/
+│   ├── test_gym_finder.py   # Core unit tests
+│   └── test_batch_processing.py # Metropolitan tests
+└── scripts/
+    ├── benchmark.py         # Performance testing
+    └── benchmark_metro.py   # Metropolitan benchmarks
 ```
 
 ### Design Principles
@@ -185,6 +196,51 @@ def new_confidence_signal(self, yelp_data, google_data):
 
     return min(confidence, 0.10)  # Cap at 10%
 ```
+
+## 🏙️ Adding Metropolitan Areas
+
+### How to Add a New Metro
+1. **Edit `src/metro_areas.py`**:
+```python
+"denver": MetropolitanArea(
+    name="Denver",
+    code="denver",
+    description="Denver Metro Area",
+    state="CO",
+    population=2_900_000,
+    density_category="medium",
+    market_characteristics=[
+        "outdoor_fitness", "health_conscious", "altitude_training"
+    ],
+    zip_codes=[
+        "80202", "80203", "80204", # Downtown
+        "80205", "80206", "80207", # Central
+        # Add 30-50 ZIP codes minimum
+    ]
+)
+```
+
+2. **Add Tests**:
+```python
+# In tests/test_batch_processing.py
+def test_denver_metro(self):
+    denver = get_metro_area("denver")
+    self.assertIsNotNone(denver)
+    self.assertEqual(denver.code, "denver")
+    self.assertTrue(len(denver.zip_codes) >= 30)
+```
+
+3. **Update Documentation**:
+- Add to README.md metro list
+- Update CLI help text in gym_finder.py
+- Add to benchmark tests
+
+### Metro Area Guidelines
+- **Minimum 30 ZIP codes**: Cover major population centers
+- **Market characteristics**: 3-6 unique traits
+- **Density categories**: low, medium, high, very_high
+- **Population data**: Use latest census data
+- **Testing**: Must include unit tests
 
 ## 🧪 Testing Requirements
 
