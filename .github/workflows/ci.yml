@@ -72,6 +72,7 @@ jobs:
 
         # Test imports
         try:
+            sys.path.insert(0, 'src')
             from gym_finder import GymFinder
             from yelp_service import YelpService
             from google_places_service import GooglePlacesService
@@ -107,7 +108,7 @@ jobs:
     - name: Run unit tests with pytest
       run: |
         # Run tests with mocking to avoid real API calls
-        python -m pytest test_gym_finder.py -v --tb=short --disable-warnings
+        python -m pytest tests/test_gym_finder.py -v --tb=short --disable-warnings
 
     - name: Run integration tests (limited)
       run: |
@@ -116,6 +117,7 @@ jobs:
         sys.path.append('.')
 
         # Test core functionality without API calls
+        sys.path.insert(0, 'src')
         from gym_finder import GymFinder
 
         try:

@@ -96,13 +96,13 @@ jobs:
       run: |
         # Combined smoke tests + unit tests for speed
         python -c "
-        import sys; sys.path.append('.')
+        import sys; sys.path.insert(0, 'src')
         from gym_finder import GymFinder
         from yelp_service import YelpService
         from google_places_service import GooglePlacesService
         print('✅ Import smoke test passed')
         "
-        pytest test_gym_finder.py -v --tb=short --disable-warnings
+        pytest tests/test_gym_finder.py -v --tb=short --disable-warnings
 
   # Security and quality jobs - run in parallel
   security-scan:
@@ -157,7 +157,7 @@ jobs:
         echo "GOOGLE_PLACES_API_KEY=test_key" >> .env
 
         python -c "
-        import time, sys; sys.path.append('.')
+        import time, sys; sys.path.insert(0, 'src')
         from gym_finder import GymFinder
 
         gf = GymFinder()

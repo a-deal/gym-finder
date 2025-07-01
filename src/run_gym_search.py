@@ -3,8 +3,6 @@
 Script Runner for GymIntel - Execute gym searches programmatically
 """
 
-import json
-import os
 import sys
 from datetime import datetime
 

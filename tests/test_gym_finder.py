@@ -4,14 +4,18 @@ Test Suite for GymIntel - Comprehensive Gym Discovery Platform
 """
 
 import os
+import sys
 import unittest
 from unittest.mock import Mock, patch
 
 import requests
 
-from google_places_service import GooglePlacesService
-from gym_finder import GymFinder
-from yelp_service import YelpService
+# Add src directory to Python path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
+from google_places_service import GooglePlacesService  # noqa: E402
+from gym_finder import GymFinder  # noqa: E402
+from yelp_service import YelpService  # noqa: E402
 
 
 class TestYelpService(unittest.TestCase):

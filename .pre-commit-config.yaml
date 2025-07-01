@@ -96,7 +96,7 @@ repos:
       - id: run-smoke-tests
         name: Run smoke tests
         entry: python3
-        args: [-c, "try:\n  from gym_finder import GymFinder\n  from yelp_service import YelpService\n  from google_places_service import GooglePlacesService\n  gf = GymFinder()\n  print('✅ Smoke tests passed')\nexcept Exception as e:\n  print(f'❌ Smoke tests failed: {e}')\n  exit(1)"]
+        args: [-c, "import sys, os; sys.path.insert(0, 'src'); from gym_finder import GymFinder; gf = GymFinder(); print('✅ Smoke tests passed')"]
         language: system
         pass_filenames: false
         always_run: true
@@ -112,7 +112,7 @@ repos:
       - id: performance-check
         name: Quick performance check
         entry: python3
-        args: [-c, "import time\nfrom gym_finder import GymFinder\ngf = GymFinder()\nstart = time.time()\nfor i in range(100):\n  gf.normalize_address(f'{i} Main St')\nelapsed = time.time() - start\nif elapsed > 0.5:\n  print(f'❌ Performance degradation: {elapsed:.3f}s > 0.5s')\n  exit(1)\nprint(f'✅ Performance OK: {elapsed:.3f}s for 100 address normalizations')"]
+        args: [-c, "import time, sys, os; sys.path.insert(0, 'src'); from gym_finder import GymFinder; gf = GymFinder(); start = time.time(); [gf.normalize_address(f'{i} Main St') for i in range(100)]; elapsed = time.time() - start; exit(1) if elapsed > 0.5 else print(f'✅ Performance OK: {elapsed:.3f}s')"]
         language: system
         pass_filenames: false
         files: \.(py)$
