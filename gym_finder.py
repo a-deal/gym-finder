@@ -13,6 +13,8 @@ from tabulate import tabulate
 import time
 import re
 from urllib.parse import quote
+import ssl
+import certifi
 
 load_dotenv()
 
@@ -20,7 +22,10 @@ class GymFinder:
     def __init__(self):
         self.yelp_api_key = os.getenv('YELP_API_KEY')
         self.google_api_key = os.getenv('GOOGLE_PLACES_API_KEY')
-        self.geolocator = Nominatim(user_agent="gym-intel-cli")
+        
+        # Create SSL context for certificate verification
+        ctx = ssl.create_default_context(cafile=certifi.where())
+        self.geolocator = Nominatim(user_agent="gym-intel-cli", ssl_context=ctx)
         
     def zipcode_to_coords(self, zipcode):
         """Convert zipcode to latitude/longitude coordinates"""
