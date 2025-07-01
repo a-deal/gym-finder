@@ -277,45 +277,32 @@ This command-line tool represents the complete Phase 1 & 2 implementation:
 
 We're developing a web application version at **[GymIntel-Web](https://github.com/a-deal/gymintel-web)** featuring:
 
-#### **Phase 3: Business Intelligence & Visualization**
-- 🗄️ **Persistent Database**: PostgreSQL with PostGIS for geographic queries
-- 🗺️ **Interactive Maps**: Real-time gym locations with confidence score overlays
-- 📊 **Data Visualization**: Charts, heatmaps, and trend analysis
-- 🔍 **Advanced Filtering**: Equipment, amenities, price ranges, hours
-- 📈 **Market Analytics**: Gap analysis, competitor mapping, demographic insights
+The web application will feature:
 
-#### **Phase 4: Web Platform Features**
-- 🌐 **REST API**: Programmatic access to gym intelligence
-- 👤 **User Accounts**: Saved searches, preferences, alerts
-- 📱 **Mobile Responsive**: Progressive Web App (PWA)
-- 🔄 **Real-time Updates**: Live gym data with change notifications
-- 🤖 **AI Insights**: Personalized recommendations and market predictions
+1. **GraphQL API** - Flexible data queries and real-time subscriptions
+2. **Interactive Maps** - Mapbox integration with confidence score overlays
+3. **Business Intelligence** - Market analytics and competitor analysis
+4. **Data Visualization** - Charts, heatmaps, and trend analysis
+5. **User Accounts** - Saved searches and preferences
+
+**📋 Full Details**: See complete architecture and development phases at **[GymIntel-Web README](https://github.com/a-deal/gymintel-web)**
 
 ### **Migration Path**
 
 **For Current CLI Users:**
-1. **Keep using this CLI tool** - it will remain fully supported
-2. **Export your data** using `--export json` for migration to web app
-3. **Try the web app** when available for enhanced visualization
-4. **API access** will be available for programmatic integration
+- **Keep using this CLI tool** - it remains fully supported and stable
+- **Export your data** using `--export json` for seamless web app import
+- **GraphQL API access** - programmatic data access when available
 
 **For Contributors:**
 - **CLI improvements**: Continue contributing to this repository
 - **Web development**: Join development at [GymIntel-Web](https://github.com/a-deal/gymintel-web)
-- **Cross-project coordination**: Core algorithms are shared between both projects
 
 ### **Why Fork the Project?**
 
 1. **Stability**: CLI tool remains stable and production-ready
-2. **Focus**: Web app can experiment with new tech stack without affecting CLI
-3. **User Choice**: Different users prefer different interfaces (CLI vs Web)
-4. **Deployment**: Separate deployment strategies (local CLI vs cloud web app)
-
-### **Timeline**
-
-- **Q1 2025**: Web app Phase 3 (Database + Visualization)
-- **Q2 2025**: Web app Phase 4 (Full platform features)
-- **Ongoing**: CLI maintenance and minor enhancements
+2. **Focus**: Different tech stacks and deployment strategies
+3. **User Choice**: CLI for developers/automation, Web for business users
 
 ---
 
