@@ -1,15 +1,20 @@
-name: GymIntel CI/CD Pipeline
+name: GymIntel CI/CD Pipeline (Comprehensive)
 
+# Comprehensive CI - runs on main branch and weekly
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main ]
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly on Monday at 6 AM UTC
+  workflow_dispatch:  # Allow manual trigger
 
 jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false  # Don't stop other versions if one fails
       matrix:
         python-version: [3.8, 3.9, '3.10', '3.11']
 
@@ -24,10 +29,13 @@ jobs:
     - name: Cache pip dependencies
       uses: actions/cache@v3
       with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        path: |
+          ~/.cache/pip
+          .venv
+        key: ${{ runner.os }}-deps-py${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt') }}-v2
         restore-keys: |
-          ${{ runner.os }}-pip-
+          ${{ runner.os }}-deps-py${{ matrix.python-version }}-
+          ${{ runner.os }}-deps-
 
     - name: Install dependencies
       run: |
