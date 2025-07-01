@@ -155,6 +155,26 @@ class GymFinder:
         
         return filename
 
+    def export_to_json(self, gyms, zipcode, filename=None):
+        """Export gym results to JSON file"""
+        if not filename:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"gyms_{zipcode}_{timestamp}.json"
+        
+        export_data = {
+            "search_info": {
+                "zipcode": zipcode,
+                "timestamp": datetime.now().isoformat(),
+                "total_results": len(gyms)
+            },
+            "gyms": gyms
+        }
+        
+        with open(filename, 'w', encoding='utf-8') as jsonfile:
+            json.dump(export_data, jsonfile, indent=2, ensure_ascii=False)
+        
+        return filename
+
     def display_results(self, gyms, zipcode):
         """Display gym results in a formatted table"""
         click.echo(f"\n🏋️  Found {len(gyms)} gyms near {zipcode}\n")
