@@ -1,22 +1,25 @@
-name: Claude Code Review
+name: Claude Code Review (On-Demand)
 
 on:
-  pull_request:
-    types: [opened, synchronize]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
+  # Trigger manually or via comment
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to review (leave empty for current branch)'
+        required: false
+        type: string
+  issue_comment:
+    types: [created]
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    # Only run if manually triggered OR if comment contains "@claude" or "claude review"
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       (contains(github.event.comment.body, '@claude') ||
+        contains(github.event.comment.body, 'claude review')))
 
     runs-on: ubuntu-latest
     # Make this job optional - don't block PR merges if Claude review fails
@@ -28,10 +31,25 @@ jobs:
       id-token: write
 
     steps:
+      - name: Get PR details
+        id: pr-details
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ -n "${{ github.event.inputs.pr_number }}" ]; then
+              echo "pr_number=${{ github.event.inputs.pr_number }}" >> $GITHUB_OUTPUT
+            else
+              echo "pr_number=" >> $GITHUB_OUTPUT
+            fi
+          elif [ "${{ github.event_name }}" == "issue_comment" ]; then
+            echo "pr_number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          # For PR comments, checkout the PR branch
+          ref: ${{ github.event_name == 'issue_comment' && format('refs/pull/{0}/head', github.event.issue.number) || github.ref }}
 
       - name: Run Claude Code Review
         id: claude-review
@@ -80,12 +98,21 @@ jobs:
       - name: Claude Review Status
         if: always()
         run: |
+          echo "🤖 Claude Review (On-Demand) Results:"
+          echo "Triggered by: ${{ github.event_name }}"
+
           if [ "${{ steps.claude-review.outcome }}" == "success" ]; then
             echo "✅ Claude review completed successfully"
+            echo "💡 Review feedback has been posted to the PR"
           elif [ "${{ steps.claude-review.outcome }}" == "failure" ]; then
-            echo "⚠️  Claude review failed (likely due to credit balance)"
-            echo "This is non-blocking - PR can still be merged if other checks pass"
-            echo "To resolve: Add credits to Anthropic account or disable Claude review"
+            echo "⚠️  Claude review failed (likely due to credit balance or API issues)"
+            echo "💰 Check Anthropic account credits or API key configuration"
+            echo "🔧 This is non-blocking - PR can still be merged"
           else
             echo "ℹ️  Claude review was skipped or cancelled"
           fi
+
+          echo ""
+          echo "📝 How to trigger Claude review:"
+          echo "  • Comment '@claude' or 'claude review' on any PR"
+          echo "  • Use 'Actions' tab → 'Claude Code Review (On-Demand)' → 'Run workflow'"

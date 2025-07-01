@@ -45,19 +45,35 @@ cp .env.example .env
    # Value: [your-anthropic-api-key]
    ```
 
-3. **How Claude Review Works**:
-   - 🔍 Automatically reviews all pull requests
-   - 📝 Provides feedback on code quality, security, and best practices
-   - ✅ Runs alongside other CI/CD checks
+3. **How Claude Review Works (On-Demand)**:
+   - 🎯 **On-demand only** - saves API costs and runs when you need detailed feedback
+   - 📝 Provides comprehensive feedback on code quality, security, and best practices
    - 💬 Posts review comments directly in the PR
+   - 🔧 Non-blocking - never prevents PR merges
 
-4. **Triggering Manual Reviews**:
+4. **How to Trigger Claude Reviews**:
+
+   **Method 1: Comment trigger**
    ```bash
-   # Comment on any PR to trigger a manual review
+   # Comment on any PR to trigger a review
    @claude
+   # or
+   claude review
    ```
 
-**Note**: The `claude-review` check is optional and non-blocking. If it fails (due to API key issues or insufficient credits), PRs can still be merged as long as other CI/CD checks pass.
+   **Method 2: Manual workflow**
+   - Go to Actions tab → "Claude Code Review (On-Demand)" → "Run workflow"
+   - Optionally specify a PR number
+
+   **Method 3: GitHub CLI**
+   ```bash
+   gh workflow run "Claude Code Review (On-Demand)" --field pr_number=123
+   ```
+
+**Benefits**:
+- 💰 Cost-effective (only runs when requested)
+- 🚀 Faster CI pipeline (no automatic review delays)
+- 🎯 Focused feedback when you need it most
 
 ### 2. Run Tests
 
@@ -339,10 +355,12 @@ def example_function(param1, param2):
 3. **Testing**: Reviewer may test functionality
 4. **Approval**: PR approved and merged
 
-**Note**: The `claude-review` check is optional and won't block PR merges. Common failure reasons:
+**Note**: Claude review is now **on-demand only** and never blocks PR merges. Common failure reasons:
 - Missing `ANTHROPIC_API_KEY` (see setup section above)
 - Insufficient credits in Anthropic account
 - API rate limits or service issues
+
+To trigger: Comment `@claude` or `claude review` on any PR, or use the manual workflow in Actions tab.
 
 ## 🐛 Reporting Issues
 
