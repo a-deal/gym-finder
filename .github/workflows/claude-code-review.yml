@@ -19,6 +19,8 @@ jobs:
     #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
 
     runs-on: ubuntu-latest
+    # Make this job optional - don't block PR merges if Claude review fails
+    continue-on-error: true
     permissions:
       contents: read
       pull-requests: read
@@ -34,6 +36,8 @@ jobs:
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@beta
+        # Allow this step to fail without failing the entire job
+        continue-on-error: true
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
 
@@ -72,3 +76,16 @@ jobs:
           # if: |
           #   !contains(github.event.pull_request.title, '[skip-review]') &&
           #   !contains(github.event.pull_request.title, '[WIP]')
+
+      - name: Claude Review Status
+        if: always()
+        run: |
+          if [ "${{ steps.claude-review.outcome }}" == "success" ]; then
+            echo "✅ Claude review completed successfully"
+          elif [ "${{ steps.claude-review.outcome }}" == "failure" ]; then
+            echo "⚠️  Claude review failed (likely due to credit balance)"
+            echo "This is non-blocking - PR can still be merged if other checks pass"
+            echo "To resolve: Add credits to Anthropic account or disable Claude review"
+          else
+            echo "ℹ️  Claude review was skipped or cancelled"
+          fi

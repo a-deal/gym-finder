@@ -57,7 +57,7 @@ cp .env.example .env
    @claude
    ```
 
-**Note**: Without the API key configured, the `claude-review` check will fail. All other CI/CD checks will continue to work normally.
+**Note**: The `claude-review` check is optional and non-blocking. If it fails (due to API key issues or insufficient credits), PRs can still be merged as long as other CI/CD checks pass.
 
 ### 2. Run Tests
 
@@ -339,7 +339,10 @@ def example_function(param1, param2):
 3. **Testing**: Reviewer may test functionality
 4. **Approval**: PR approved and merged
 
-**Note**: If the `claude-review` check fails, ensure the repository has the `ANTHROPIC_API_KEY` configured (see setup section above).
+**Note**: The `claude-review` check is optional and won't block PR merges. Common failure reasons:
+- Missing `ANTHROPIC_API_KEY` (see setup section above)
+- Insufficient credits in Anthropic account
+- API rate limits or service issues
 
 ## 🐛 Reporting Issues
 
