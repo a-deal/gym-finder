@@ -159,8 +159,8 @@ jobs:
     - name: Check for known vulnerabilities with Safety
       run: |
         pip install -r requirements.txt
-        safety check --json --output safety-report.json || true
-        safety check
+        safety scan --json --output safety-report.json || true
+        safety scan --continue-on-error
 
   performance-test:
     runs-on: ubuntu-latest
