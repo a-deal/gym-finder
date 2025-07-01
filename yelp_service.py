@@ -54,7 +54,7 @@ class YelpService:
             
             return gyms
             
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             click.echo(f"Error searching Yelp: {e}")
             return []
     
