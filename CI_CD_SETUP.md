@@ -29,12 +29,12 @@ Tests across multiple Python versions:
 #### **Smoke Tests**
 ```yaml
 - Import validation
-- Instance creation  
+- Instance creation
 - Basic method execution
 - API key configuration check
 ```
 
-#### **Unit Tests** 
+#### **Unit Tests**
 ```yaml
 - Pytest execution with mocking
 - 21 comprehensive test cases
@@ -53,10 +53,10 @@ Tests across multiple Python versions:
 #### **Performance Tests**
 ```yaml
 - Method execution speed validation
-- Performance regression detection  
+- Performance regression detection
 - Thresholds:
   - Address normalization: < 1.0s (1000 calls)
-  - Phone normalization: < 1.0s (1000 calls) 
+  - Phone normalization: < 1.0s (1000 calls)
   - Name similarity: < 5.0s (100 calls)
 ```
 
@@ -130,7 +130,7 @@ Structured checklist ensures:
 
 ### **All Checks Must Pass:**
 - ✅ Smoke tests: Basic functionality
-- ✅ Unit tests: Comprehensive coverage  
+- ✅ Unit tests: Comprehensive coverage
 - ✅ Security scans: No vulnerabilities
 - ✅ Performance tests: No regressions
 - ✅ Code quality: Linting and formatting
@@ -180,7 +180,7 @@ pre-commit run flake8 --all-files
 
 ### **Typical Pipeline Times:**
 - **Smoke Tests**: ~30 seconds
-- **Unit Tests**: ~2 minutes  
+- **Unit Tests**: ~2 minutes
 - **Security Scans**: ~1 minute
 - **Performance Tests**: ~1 minute
 - **Total Pipeline**: ~5-7 minutes
@@ -201,7 +201,7 @@ pip install -r requirements.txt
 python3 -c "from gym_finder import GymFinder"
 ```
 
-#### **Test Failures** 
+#### **Test Failures**
 ```bash
 # Fix: Run tests locally first
 python3 run_tests.py
@@ -252,7 +252,7 @@ If automatic triggers fail:
 
 ### **Potential Additions:**
 - **Coverage reporting**: Track test coverage trends
-- **Performance trending**: Monitor performance over time  
+- **Performance trending**: Monitor performance over time
 - **Dependency updates**: Automated dependency updates
 - **Release automation**: Automated version tagging and releases
 

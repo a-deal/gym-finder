@@ -83,7 +83,7 @@ from yelp_service import YelpService
 yelp = YelpService()
 gyms = yelp.search_gyms(40.7484, -73.9940, radius_miles=2)
 
-# Google Places-only search  
+# Google Places-only search
 from google_places_service import GooglePlacesService
 google = GooglePlacesService()
 gyms = google.search_gyms(40.7484, -73.9940, radius_miles=2)
@@ -106,7 +106,7 @@ coords = gym_finder.estimate_coordinates_from_address("123 Main St, NYC 10001")
 ### **Smoke Tests**: ✅ 4/4 PASSED
 - All imports successful
 - Instance creation working
-- Basic methods functional  
+- Basic methods functional
 - API keys configured
 
 ### **Unit Tests**: Target 18+ tests
@@ -144,7 +144,7 @@ ls -la *.py
 ### **Performance Expectations**
 
 - **Search time**: < 3 seconds per ZIP code
-- **Confidence range**: 58-86% for merged gyms  
+- **Confidence range**: 58-86% for merged gyms
 - **Merge rate**: ~40% (20/50 gyms typically merged)
 - **Coverage**: 50+ Yelp + 20+ Google = 70+ total unique gyms
 
@@ -155,7 +155,7 @@ ls -la *.py
 # CLI method (original)
 python3 gym_finder.py --zipcode 10001 --radius 2
 
-# Script method (new)  
+# Script method (new)
 python3 run_gym_search.py 10001 2
 ```
 
@@ -186,7 +186,7 @@ python3 run_gym_search.py 10001 1 > /dev/null && echo "✅ System OK"
 ### **Performance Monitoring**
 The benchmark.py script provides comprehensive metrics:
 - Execution time statistics
-- Confidence score distribution  
+- Confidence score distribution
 - API response consistency
 - Multi-ZIP code scalability
 

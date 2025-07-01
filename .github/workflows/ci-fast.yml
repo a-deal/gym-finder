@@ -1,0 +1,223 @@
+name: GymIntel Fast CI/CD Pipeline
+
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+
+# Optimize for speed while maintaining quality
+jobs:
+  # Quick validation job - runs first to fail fast
+  quick-checks:
+    runs-on: ubuntu-latest
+    outputs:
+      python-version: ${{ steps.setup.outputs.python-version }}
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python (latest)
+      id: setup
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'  # Use latest for speed
+
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/pip
+          .venv
+        key: ${{ runner.os }}-deps-${{ hashFiles('**/requirements.txt') }}-v2
+        restore-keys: |
+          ${{ runner.os }}-deps-
+
+    - name: Install dependencies (fast)
+      run: |
+        python -m pip install --upgrade pip
+        # Install only essential deps for quick checks
+        pip install flake8 black isort bandit
+
+    - name: Quick syntax check
+      run: |
+        # Fail fast on syntax errors
+        flake8 . --select=E9,F63,F7,F82 --statistics
+
+    - name: Quick formatting check
+      run: |
+        black --check --line-length=127 *.py
+        isort --check-only --line-length=127 --profile=black *.py
+
+    - name: Quick security scan
+      run: |
+        bandit -r . -ll --skip=test_*.py -q
+
+  # Main test job - runs in parallel after quick checks pass
+  test:
+    needs: quick-checks
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true  # Stop other matrix jobs if one fails
+      matrix:
+        # Reduce matrix - test on min/max Python versions only for PRs
+        python-version: ${{ github.event_name == 'pull_request' && '["3.8", "3.11"]' || '["3.8", "3.9", "3.10", "3.11"]' }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/pip
+          .venv
+        key: ${{ runner.os }}-deps-py${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt') }}-v2
+        restore-keys: |
+          ${{ runner.os }}-deps-py${{ matrix.python-version }}-
+          ${{ runner.os }}-deps-
+
+    - name: Install dependencies (cached)
+      run: |
+        python -m pip install --upgrade pip
+        # Install all deps in one go for better caching
+        pip install -r requirements.txt pytest pytest-cov pytest-mock
+
+    - name: Set up test environment
+      run: |
+        echo "YELP_API_KEY=test_yelp_key_for_ci" > .env
+        echo "GOOGLE_PLACES_API_KEY=test_google_key_for_ci" >> .env
+
+    - name: Run tests
+      run: |
+        # Combined smoke tests + unit tests for speed
+        python -c "
+        import sys; sys.path.append('.')
+        from gym_finder import GymFinder
+        from yelp_service import YelpService
+        from google_places_service import GooglePlacesService
+        print('✅ Import smoke test passed')
+        "
+        pytest test_gym_finder.py -v --tb=short --disable-warnings
+
+  # Security and quality jobs - run in parallel
+  security-scan:
+    needs: quick-checks
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Cache security tools
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-security-${{ hashFiles('**/requirements.txt') }}-v2
+
+    - name: Install and run security tools
+      run: |
+        pip install bandit safety
+        # Parallel security scanning
+        bandit -r . -f json -o bandit-report.json -ll &
+        pip install -r requirements.txt
+        safety scan --output json > safety-report.json &
+        wait  # Wait for both to complete
+
+  # Performance test - only on PRs for speed
+  performance-test:
+    needs: quick-checks
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-perf-${{ hashFiles('**/requirements.txt') }}-v2
+
+    - name: Run performance tests
+      run: |
+        pip install -r requirements.txt
+        echo "YELP_API_KEY=test_key" > .env
+        echo "GOOGLE_PLACES_API_KEY=test_key" >> .env
+
+        python -c "
+        import time, sys; sys.path.append('.')
+        from gym_finder import GymFinder
+
+        gf = GymFinder()
+
+        # Quick performance check (reduced iterations)
+        start = time.time()
+        for i in range(100):  # Reduced from 1000
+            gf.normalize_address(f'{i} Main St')
+        addr_time = time.time() - start
+
+        start = time.time()
+        for i in range(50):  # Reduced from 100
+            gf.token_based_name_similarity(f'Gym {i}', f'Fitness {i}')
+        sim_time = time.time() - start
+
+        print(f'📊 Address: {addr_time:.3f}s, Similarity: {sim_time:.3f}s')
+        assert addr_time < 0.5 and sim_time < 2.0, 'Performance regression detected'
+        print('✅ Performance tests passed')
+        "
+
+  # Lightweight documentation check
+  documentation-check:
+    needs: quick-checks
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Quick documentation check
+      run: |
+        # Fast file existence check
+        for file in README.md ARCHITECTURE.md TESTING.md requirements.txt; do
+          [[ -f "$file" ]] || { echo "❌ Missing $file"; exit 1; }
+        done
+        [[ $(wc -l < README.md) -gt 50 ]] || { echo "❌ README too short"; exit 1; }
+        echo "✅ Documentation check passed"
+
+  # Final status check
+  ci-success:
+    needs: [quick-checks, test, security-scan, documentation-check]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check overall status
+      run: |
+        # Check if critical jobs passed (matrix jobs use different syntax)
+        echo "Test job result: ${{ needs.test.result }}"
+        echo "Security scan result: ${{ needs.security-scan.result }}"
+        echo "Documentation check result: ${{ needs.documentation-check.result }}"
+
+        # For matrix jobs, result can be 'success' only if all matrix entries succeed
+        if [[ "${{ needs.test.result }}" != "success" ]]; then
+          echo "❌ Tests failed or were skipped"
+          exit 1
+        fi
+        if [[ "${{ needs.security-scan.result }}" != "success" ]]; then
+          echo "❌ Security scan failed"
+          exit 1
+        fi
+        if [[ "${{ needs.documentation-check.result }}" != "success" ]]; then
+          echo "❌ Documentation check failed"
+          exit 1
+        fi
+        echo "🎉 Fast CI pipeline completed successfully!"

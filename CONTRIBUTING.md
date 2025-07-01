@@ -23,6 +23,58 @@ cp .env.example .env
 # Edit .env with your API keys
 ```
 
+## 🤖 For Repository Maintainers: Claude Review Setup
+
+**Important**: To enable automated Claude code reviews on pull requests, repository maintainers need to configure the Anthropic API key:
+
+### Setting up Claude Review
+
+1. **Get an Anthropic API Key**:
+   - Visit [https://console.anthropic.com/](https://console.anthropic.com/)
+   - Create an account or sign in
+   - Navigate to API Keys section
+   - Create a new API key
+
+2. **Add to Repository Secrets**:
+   ```bash
+   # Go to your repository settings
+   https://github.com/your-username/gym-finder/settings/secrets/actions
+
+   # Add new repository secret:
+   # Name: ANTHROPIC_API_KEY
+   # Value: [your-anthropic-api-key]
+   ```
+
+3. **How Claude Review Works (On-Demand)**:
+   - 🎯 **On-demand only** - saves API costs and runs when you need detailed feedback
+   - 📝 Provides comprehensive feedback on code quality, security, and best practices
+   - 💬 Posts review comments directly in the PR
+   - 🔧 Non-blocking - never prevents PR merges
+
+4. **How to Trigger Claude Reviews**:
+
+   **Method 1: Comment trigger**
+   ```bash
+   # Comment on any PR to trigger a review
+   @claude
+   # or
+   claude review
+   ```
+
+   **Method 2: Manual workflow**
+   - Go to Actions tab → "Claude Code Review (On-Demand)" → "Run workflow"
+   - Optionally specify a PR number
+
+   **Method 3: GitHub CLI**
+   ```bash
+   gh workflow run "Claude Code Review (On-Demand)" --field pr_number=123
+   ```
+
+**Benefits**:
+- 💰 Cost-effective (only runs when requested)
+- 🚀 Faster CI pipeline (no automatic review delays)
+- 🎯 Focused feedback when you need it most
+
 ### 2. Run Tests
 
 ```bash
@@ -105,7 +157,7 @@ gym-finder/
 ### Current System
 Our confidence scoring uses 8+ weighted signals:
 - Name similarity (30% weight)
-- Address matching (25% weight)  
+- Address matching (25% weight)
 - Phone matching (15% weight)
 - Address intelligence (10% weight)
 - Website domain (15% weight)
@@ -126,11 +178,11 @@ When adding confidence signals:
 def new_confidence_signal(self, yelp_data, google_data):
     """Calculate confidence based on new data point"""
     confidence = 0.0
-    
+
     # Your scoring logic here
     if some_condition:
         confidence += 0.05  # 5% weight
-    
+
     return min(confidence, 0.10)  # Cap at 10%
 ```
 
@@ -149,7 +201,7 @@ def test_new_feature(self):
     """Test new feature functionality"""
     gym_finder = GymFinder()
     result = gym_finder.new_feature("test_input")
-    
+
     self.assertIsNotNone(result)
     self.assertGreater(len(result), 0)
     # More assertions...
@@ -196,14 +248,14 @@ def optimize_example(self, data_list):
     """Optimized version with caching"""
     if not hasattr(self, '_cache'):
         self._cache = {}
-    
+
     results = []
     for item in data_list:
         key = hash(item)
         if key not in self._cache:
             self._cache[key] = expensive_operation(item)
         results.append(self._cache[key])
-    
+
     return results
 ```
 
@@ -221,12 +273,12 @@ def optimize_example(self, data_list):
 class NewAPIService:
     def __init__(self, api_key=None):
         self.api_key = api_key or os.getenv('NEW_API_KEY')
-    
+
     def search_gyms(self, lat, lng, radius_miles=10):
         """Standard search interface"""
         if not self.api_key:
             return []
-        
+
         try:
             # API call implementation
             return formatted_results
@@ -260,14 +312,14 @@ flake8 --max-line-length=127 *.py
 ```python
 def example_function(param1, param2):
     """Brief description of what the function does.
-    
+
     Args:
         param1 (str): Description of param1
         param2 (int): Description of param2
-        
+
     Returns:
         dict: Description of return value
-        
+
     Example:
         >>> result = example_function("test", 123)
         >>> print(result['key'])
@@ -293,9 +345,22 @@ def example_function(param1, param2):
 
 ### Review Process
 1. **Automated checks**: CI pipeline validates code
+   - ✅ Unit tests across Python 3.8-3.11
+   - 🔒 Security scanning (Bandit + Safety)
+   - 🎨 Code formatting (Black + isort + flake8)
+   - ⚡ Performance tests
+   - 📚 Documentation checks
+   - 🤖 **Claude AI review** (code quality & best practices)
 2. **Manual review**: Maintainer reviews for quality
 3. **Testing**: Reviewer may test functionality
 4. **Approval**: PR approved and merged
+
+**Note**: Claude review is now **on-demand only** and never blocks PR merges. Common failure reasons:
+- Missing `ANTHROPIC_API_KEY` (see setup section above)
+- Insufficient credits in Anthropic account
+- API rate limits or service issues
+
+To trigger: Comment `@claude` or `claude review` on any PR, or use the manual workflow in Actions tab.
 
 ## 🐛 Reporting Issues
 

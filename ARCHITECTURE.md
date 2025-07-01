@@ -66,7 +66,7 @@ gym-finder/
 - **Address normalization**: 40+ pattern replacements
 - **Coordinate estimation**: ZIP code proximity scoring
 
-### **Phase 2: API Intelligence**  
+### **Phase 2: API Intelligence**
 - **Google Places Details**: Business profile completeness
 - **Semantic category mapping**: Fitness business taxonomy
 - **Review sentiment analysis**: Positive/negative detection
@@ -88,7 +88,7 @@ gym-finder/
 
 ### **Data Coverage**
 - **Yelp results**: 50 gyms per search
-- **Google Places**: 20 gyms per search  
+- **Google Places**: 20 gyms per search
 - **Total unique**: ~50 gyms after intelligent merging
 - **Geographic accuracy**: ZIP + street coordinate estimation
 
@@ -102,7 +102,7 @@ from yelp_service import YelpService
 yelp = YelpService()
 gyms = yelp.search_gyms(40.7484, -73.9940, radius_miles=2)
 
-# Google Places-only search  
+# Google Places-only search
 from google_places_service import GooglePlacesService
 google = GooglePlacesService()
 gyms = google.search_gyms(40.7484, -73.9940, radius_miles=2)
@@ -118,7 +118,7 @@ python3 gym_finder.py --zipcode 10001 --radius 2
 
 ### **Additional Service Modules**
 - **Foursquare Service**: Additional venue data
-- **Facebook Places Service**: Social media integration  
+- **Facebook Places Service**: Social media integration
 - **Yelp Reviews Service**: Detailed review analysis
 - **Instagram Service**: Handle verification and metrics
 
