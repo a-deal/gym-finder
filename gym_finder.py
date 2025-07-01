@@ -84,6 +84,92 @@ class GymFinder:
             click.echo(f"Error searching Yelp: {e}")
             return []
     
+    def search_google_places_gyms(self, lat, lng, radius_miles=10):
+        """Search for gyms using Google Places API"""
+        if not self.google_api_key:
+            click.echo("Warning: GOOGLE_PLACES_API_KEY not found in .env file")
+            return []
+        
+        # Convert miles to meters (Google Places uses meters)
+        radius_meters = int(radius_miles * 1609.34)
+        
+        # First, search for nearby gyms
+        search_url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+        
+        params = {
+            "location": f"{lat},{lng}",
+            "radius": radius_meters,
+            "type": "gym",
+            "key": self.google_api_key
+        }
+        
+        try:
+            gyms = []
+            
+            # Google Places returns up to 60 results across 3 pages
+            next_page_token = None
+            pages_fetched = 0
+            max_pages = 3
+            
+            while pages_fetched < max_pages:
+                if next_page_token:
+                    params["pagetoken"] = next_page_token
+                elif pages_fetched > 0:
+                    break
+                    
+                response = requests.get(search_url, params=params)
+                response.raise_for_status()
+                data = response.json()
+                
+                if data.get('status') != 'OK' and data.get('status') != 'ZERO_RESULTS':
+                    click.echo(f"Google Places API error: {data.get('status')}")
+                    break
+                
+                for place in data.get('results', []):
+                    gym = {
+                        'name': place.get('name'),
+                        'address': place.get('vicinity'),
+                        'phone': 'N/A',  # Basic version without place details
+                        'rating': place.get('rating', 'N/A'),
+                        'review_count': place.get('user_ratings_total', 0),
+                        'price': self._convert_google_price_level(place.get('price_level')),
+                        'url': f"https://maps.google.com/?place_id={place.get('place_id')}",
+                        'source': 'Google Places',
+                        'place_id': place.get('place_id'),
+                        'location': place.get('geometry', {}).get('location', {}),
+                        'types': place.get('types', []),
+                        'open_now': place.get('opening_hours', {}).get('open_now') if place.get('opening_hours') else None
+                    }
+                    gyms.append(gym)
+                
+                # Check for next page
+                next_page_token = data.get('next_page_token')
+                pages_fetched += 1
+                
+                # Google requires a delay between paginated requests
+                if next_page_token and pages_fetched < max_pages:
+                    time.sleep(2)
+            
+            return gyms
+            
+        except requests.exceptions.RequestException as e:
+            click.echo(f"Error searching Google Places: {e}")
+            return []
+    
+    def _convert_google_price_level(self, price_level):
+        """Convert Google Places price level to readable format"""
+        if price_level is None:
+            return 'N/A'
+        
+        price_map = {
+            0: 'Free',
+            1: '$',
+            2: '$$', 
+            3: '$$$',
+            4: '$$$$'
+        }
+        return price_map.get(price_level, 'N/A')
+    
     def detect_instagram_handle(self, gym_name, gym_url=""):
         """Basic Instagram handle detection"""
         # Simple heuristic - convert gym name to likely Instagram format
@@ -99,8 +185,8 @@ class GymFinder:
         # In full version, we'd verify these exist
         return possible_handles[0] if possible_handles else "N/A"
     
-    def find_gyms(self, zipcode, radius=10, export_format=None):
-        """Main function to find gyms by zipcode"""
+    def find_gyms(self, zipcode, radius=10, export_format=None, use_google=True):
+        """Main function to find gyms by zipcode using multiple data sources"""
         click.echo(f"🏋️  Searching for gyms near {zipcode}...")
         
         # Convert zipcode to coordinates
@@ -111,21 +197,44 @@ class GymFinder:
         
         click.echo(f"📍 Location: {lat:.4f}, {lng:.4f}")
         
-        # Search Yelp for gyms
-        gyms = self.search_yelp_gyms(lat, lng, radius)
+        # Search multiple data sources
+        all_gyms = []
         
-        if not gyms:
-            click.echo("❌ No gyms found")
+        # Search Yelp
+        click.echo("🔍 Searching Yelp...")
+        yelp_gyms = self.search_yelp_gyms(lat, lng, radius)
+        
+        # Search Google Places if enabled and API key available
+        google_gyms = []
+        if use_google and self.google_api_key and self.google_api_key != "your_google_places_api_key_here":
+            click.echo("🔍 Searching Google Places...")
+            google_gyms = self.search_google_places_gyms(lat, lng, radius)
+        
+        # Combine results (simple concatenation for now)
+        all_gyms = yelp_gyms + google_gyms
+        
+        if not all_gyms:
+            click.echo("❌ No gyms found from any source")
             return
         
+        # Add source metadata
+        for gym in all_gyms:
+            if 'sources' not in gym:
+                gym['sources'] = [gym['source']]
+            gym['match_confidence'] = 0.0  # No merging in this version
+        
+        click.echo(f"✅ Found {len(yelp_gyms)} Yelp + {len(google_gyms)} Google Places = {len(all_gyms)} total gyms")
+        
         # Enrich with Instagram handles
-        click.echo("🔍 Detecting Instagram handles...")
-        for gym in gyms:
-            gym['instagram'] = self.detect_instagram_handle(gym['name'])
-            gym['membership_fee'] = "TBD"  # Placeholder for future implementation
+        click.echo("📱 Detecting Instagram handles...")
+        for gym in all_gyms:
+            if 'instagram' not in gym or gym['instagram'] == 'N/A':
+                gym['instagram'] = self.detect_instagram_handle(gym['name'])
+            if 'membership_fee' not in gym:
+                gym['membership_fee'] = "TBD"  # Placeholder for future implementation
         
         # Display results
-        self.display_results(gyms, zipcode, export_format)
+        self.display_results(all_gyms, zipcode, export_format)
     
     def export_to_csv(self, gyms, zipcode, filename=None):
         """Export gym results to CSV file"""
@@ -133,7 +242,7 @@ class GymFinder:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"gyms_{zipcode}_{timestamp}.csv"
         
-        headers = ["Name", "Address", "Phone", "Rating", "Review Count", "Instagram", "Membership Fee", "Source", "Yelp URL"]
+        headers = ["Name", "Address", "Phone", "Rating", "Review Count", "Instagram", "Membership Fee", "Source", "Confidence", "URL"]
         
         with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
             writer = csv.writer(csvfile)
@@ -149,6 +258,7 @@ class GymFinder:
                     gym['instagram'],
                     gym['membership_fee'],
                     gym['source'],
+                    gym.get('match_confidence', 0.0),
                     gym['url']
                 ]
                 writer.writerow(row)
@@ -180,10 +290,13 @@ class GymFinder:
         click.echo(f"\n🏋️  Found {len(gyms)} gyms near {zipcode}\n")
         
         # Prepare table data
-        headers = ["Name", "Address", "Phone", "Rating", "Instagram", "Fee", "Source"]
+        headers = ["Name", "Address", "Phone", "Rating", "Instagram", "Fee", "Source", "Confidence"]
         table_data = []
         
         for gym in gyms:
+            confidence = gym.get('match_confidence', 0.0)
+            confidence_display = f"{confidence:.0%}" if confidence > 0 else "N/A"
+            
             row = [
                 gym['name'][:30] + "..." if len(gym['name']) > 30 else gym['name'],
                 gym['address'][:40] + "..." if len(gym['address']) > 40 else gym['address'],
@@ -191,7 +304,8 @@ class GymFinder:
                 f"{gym['rating']}" + (f" ({gym['review_count']})" if gym['review_count'] else ""),
                 gym['instagram'],
                 gym['membership_fee'],
-                gym['source']
+                gym['source'],
+                confidence_display
             ]
             table_data.append(row)
         
@@ -216,10 +330,11 @@ class GymFinder:
 @click.option('--zipcode', '-z', required=True, help='ZIP code to search around')
 @click.option('--radius', '-r', default=10, help='Search radius in miles (default: 10)')
 @click.option('--export', '-e', type=click.Choice(['csv', 'json', 'both'], case_sensitive=False), help='Export results to file (csv, json, or both)')
-def main(zipcode, radius, export):
+@click.option('--no-google', is_flag=True, help='Disable Google Places API (use only Yelp)')
+def main(zipcode, radius, export, no_google):
     """GymIntel - Find gyms, Instagram handles, and membership fees by zipcode"""
     finder = GymFinder()
-    finder.find_gyms(zipcode, radius, export)
+    finder.find_gyms(zipcode, radius, export, use_google=not no_google)
 
 if __name__ == '__main__':
     main()
