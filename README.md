@@ -331,7 +331,7 @@ We're developing a web application version at **[GymIntel-Web](https://github.co
 | Project | Purpose | Status | Best For |
 |---------|---------|--------|----------|
 | **[GymIntel CLI](https://github.com/a-deal/gymintel-cli)** | Command-line tool | ✅ Production | Scripts, automation, developers |
-| **[GymIntel-Web](https://github.com/a-deal/gymintel-web)** | Web application | 🚧 Development | Business users, visualization, analysis |
+| **[GymIntel-Web](https://github.com/a-deal/gymintel-web)** | Web application | 🚀 In Progress | Business users, visualization, analysis |
 
 ---
 
