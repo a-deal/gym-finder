@@ -99,7 +99,7 @@ class GymFinder:
         # In full version, we'd verify these exist
         return possible_handles[0] if possible_handles else "N/A"
     
-    def find_gyms(self, zipcode, radius=10):
+    def find_gyms(self, zipcode, radius=10, export_format=None):
         """Main function to find gyms by zipcode"""
         click.echo(f"🏋️  Searching for gyms near {zipcode}...")
         
@@ -125,7 +125,7 @@ class GymFinder:
             gym['membership_fee'] = "TBD"  # Placeholder for future implementation
         
         # Display results
-        self.display_results(gyms, zipcode)
+        self.display_results(gyms, zipcode, export_format)
     
     def export_to_csv(self, gyms, zipcode, filename=None):
         """Export gym results to CSV file"""
@@ -175,8 +175,8 @@ class GymFinder:
         
         return filename
 
-    def display_results(self, gyms, zipcode):
-        """Display gym results in a formatted table"""
+    def display_results(self, gyms, zipcode, export_format=None):
+        """Display gym results in a formatted table and optionally export"""
         click.echo(f"\n🏋️  Found {len(gyms)} gyms near {zipcode}\n")
         
         # Prepare table data
@@ -196,14 +196,30 @@ class GymFinder:
             table_data.append(row)
         
         click.echo(tabulate(table_data, headers=headers, tablefmt="grid"))
+        
+        # Export if requested
+        if export_format:
+            if export_format.lower() == 'csv':
+                filename = self.export_to_csv(gyms, zipcode)
+                click.echo(f"\n📁 Results exported to: {filename}")
+            elif export_format.lower() == 'json':
+                filename = self.export_to_json(gyms, zipcode)
+                click.echo(f"\n📁 Results exported to: {filename}")
+            elif export_format.lower() == 'both':
+                csv_file = self.export_to_csv(gyms, zipcode)
+                json_file = self.export_to_json(gyms, zipcode)
+                click.echo(f"\n📁 Results exported to:")
+                click.echo(f"   CSV: {csv_file}")
+                click.echo(f"   JSON: {json_file}")
 
 @click.command()
 @click.option('--zipcode', '-z', required=True, help='ZIP code to search around')
 @click.option('--radius', '-r', default=10, help='Search radius in miles (default: 10)')
-def main(zipcode, radius):
+@click.option('--export', '-e', type=click.Choice(['csv', 'json', 'both'], case_sensitive=False), help='Export results to file (csv, json, or both)')
+def main(zipcode, radius, export):
     """GymIntel - Find gyms, Instagram handles, and membership fees by zipcode"""
     finder = GymFinder()
-    finder.find_gyms(zipcode, radius)
+    finder.find_gyms(zipcode, radius, export)
 
 if __name__ == '__main__':
     main()
