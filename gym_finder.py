@@ -15,6 +15,9 @@ import re
 from urllib.parse import quote
 import ssl
 import certifi
+import csv
+import json
+from datetime import datetime
 
 load_dotenv()
 
@@ -124,6 +127,34 @@ class GymFinder:
         # Display results
         self.display_results(gyms, zipcode)
     
+    def export_to_csv(self, gyms, zipcode, filename=None):
+        """Export gym results to CSV file"""
+        if not filename:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"gyms_{zipcode}_{timestamp}.csv"
+        
+        headers = ["Name", "Address", "Phone", "Rating", "Review Count", "Instagram", "Membership Fee", "Source", "Yelp URL"]
+        
+        with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(headers)
+            
+            for gym in gyms:
+                row = [
+                    gym['name'],
+                    gym['address'],
+                    gym['phone'],
+                    gym['rating'],
+                    gym['review_count'],
+                    gym['instagram'],
+                    gym['membership_fee'],
+                    gym['source'],
+                    gym['url']
+                ]
+                writer.writerow(row)
+        
+        return filename
+
     def display_results(self, gyms, zipcode):
         """Display gym results in a formatted table"""
         click.echo(f"\n🏋️  Found {len(gyms)} gyms near {zipcode}\n")
