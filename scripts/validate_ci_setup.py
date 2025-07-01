@@ -4,8 +4,6 @@ CI/CD Setup Validation Script
 Validates that our CI/CD pipeline configuration is correct
 """
 
-import json
-import os
 from pathlib import Path
 
 import yaml
@@ -27,7 +25,7 @@ def validate_github_workflows():
         return False
 
     try:
-        with open(ci_file, "r") as f:
+        with open(ci_file) as f:
             ci_config = yaml.safe_load(f)
 
         # Validate required sections (note: 'on' gets parsed as True in YAML)
@@ -68,7 +66,7 @@ def validate_pre_commit_config():
         return False
 
     try:
-        with open(precommit_file, "r") as f:
+        with open(precommit_file) as f:
             precommit_config = yaml.safe_load(f)
 
         # Validate structure
@@ -134,7 +132,7 @@ def validate_pr_template():
         return False
 
     # Check minimum content
-    with open(pr_template, "r") as f:
+    with open(pr_template) as f:
         content = f.read()
 
     required_sections = [
@@ -161,12 +159,18 @@ def validate_documentation():
     """Validate required documentation files"""
     print("🔍 Validating documentation files...")
 
-    required_docs = ["README.md", "ARCHITECTURE.md", "TESTING.md", "CONTRIBUTING.md", "CI_CD_SETUP.md"]
+    required_docs = {
+        "README.md": "README.md",  # Root level
+        "ARCHITECTURE.md": "docs/ARCHITECTURE.md",
+        "TESTING.md": "docs/TESTING.md",
+        "CONTRIBUTING.md": "docs/CONTRIBUTING.md",
+        "CI_CD_SETUP.md": "docs/CI_CD_SETUP.md",
+    }
 
     missing_docs = []
-    for doc in required_docs:
-        if not Path(doc).exists():
-            missing_docs.append(doc)
+    for doc_name, doc_path in required_docs.items():
+        if not Path(doc_path).exists():
+            missing_docs.append(doc_name)
 
     if missing_docs:
         print(f"❌ Missing documentation files: {missing_docs}")
@@ -174,7 +178,7 @@ def validate_documentation():
 
     # Validate README minimum content
     readme_path = Path("README.md")
-    with open(readme_path, "r") as f:
+    with open(readme_path) as f:
         readme_content = f.read()
 
     if len(readme_content) < 2000:  # Minimum characters
@@ -212,7 +216,7 @@ def validate_requirements():
         print("❌ requirements.txt not found")
         return False
 
-    with open(requirements_file, "r") as f:
+    with open(requirements_file) as f:
         content = f.read()
 
     # Check for essential dependencies
@@ -247,7 +251,7 @@ def validate_env_example():
         print("✅ .env file exists")
 
         # Validate API keys are configured
-        with open(env_file, "r") as f:
+        with open(env_file) as f:
             env_content = f.read()
 
         if "YELP_API_KEY" in env_content and "GOOGLE_PLACES_API_KEY" in env_content:
@@ -268,18 +272,17 @@ def run_integration_smoke_test():
         # Test imports
         from google_places_service import GooglePlacesService
         from gym_finder import GymFinder
-        from run_gym_search import run_gym_search
         from yelp_service import YelpService
 
         # Test instance creation
         gym_finder = GymFinder()
-        yelp_service = YelpService("test_key")
-        google_service = GooglePlacesService("test_key")
+        YelpService("test_key")
+        GooglePlacesService("test_key")
 
         # Test basic functionality
-        normalized = gym_finder.normalize_address("123 Test Street")
-        phone = gym_finder.normalize_phone("(555) 123-4567")
-        similarity = gym_finder.token_based_name_similarity("Gym A", "Gym B")
+        gym_finder.normalize_address("123 Test Street")
+        gym_finder.normalize_phone("(555) 123-4567")
+        gym_finder.token_based_name_similarity("Gym A", "Gym B")
 
         print("✅ Integration smoke test passed")
         return True

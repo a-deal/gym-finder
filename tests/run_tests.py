@@ -8,6 +8,9 @@ import sys
 import unittest
 from io import StringIO
 
+# Add src directory to Python path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
 
 def run_unit_tests():
     """Run unit tests with detailed output"""
@@ -58,7 +61,7 @@ def run_integration_tests():
     print("=" * 50)
 
     try:
-        from run_gym_search import run_gym_search
+        from run_gym_search import run_gym_search  # noqa: E402
 
         # Test 1: Basic search functionality
         print("1️⃣  Testing basic search functionality... ", end="", flush=True)
@@ -74,9 +77,7 @@ def run_integration_tests():
         # Test 2: Service module imports
         print("2️⃣  Testing service module imports... ", end="", flush=True)
         try:
-            from google_places_service import GooglePlacesService
             from gym_finder import GymFinder
-            from yelp_service import YelpService
 
             print("✅ PASSED")
             integration_test_2 = True
@@ -144,7 +145,6 @@ def run_smoke_tests():
         print("💨 Testing imports... ", end="", flush=True)
         from google_places_service import GooglePlacesService
         from gym_finder import GymFinder
-        from run_gym_search import run_gym_search
         from yelp_service import YelpService
 
         print("✅")
@@ -153,16 +153,16 @@ def run_smoke_tests():
         # Smoke test 2: Can we create instances?
         print("💨 Testing instance creation... ", end="", flush=True)
         gym_finder = GymFinder()
-        yelp_service = YelpService("test_key")
-        google_service = GooglePlacesService("test_key")
+        YelpService("test_key")
+        GooglePlacesService("test_key")
         print("✅")
         smoke_tests.append(True)
 
         # Smoke test 3: Can we run basic methods?
         print("💨 Testing basic methods... ", end="", flush=True)
-        normalized = gym_finder.normalize_address("123 Test St")
-        phone = gym_finder.normalize_phone("(555) 123-4567")
-        similarity = gym_finder.token_based_name_similarity("Gym A", "Gym B")
+        gym_finder.normalize_address("123 Test St")
+        gym_finder.normalize_phone("(555) 123-4567")
+        gym_finder.token_based_name_similarity("Gym A", "Gym B")
         print("✅")
         smoke_tests.append(True)
 

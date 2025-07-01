@@ -9,11 +9,9 @@ import math
 import os
 import re
 import ssl
-import sys
-import time
 from datetime import datetime
 from difflib import SequenceMatcher
-from urllib.parse import quote, urlparse
+from urllib.parse import urlparse
 
 import certifi
 import click
