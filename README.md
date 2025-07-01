@@ -186,21 +186,15 @@ Advanced **8-signal algorithm** for intelligent data fusion:
 - [x] Parallel processing with configurable workers
 - [x] Cross-ZIP deduplication (90%+ efficiency)
 - [x] Metropolitan area analytics and statistics
-- [ ] Weekly refresh capabilities
-- [ ] Historical trend analysis
-- [ ] Advanced filtering (amenities, equipment)
 
-### 📊 **Phase 3: Business Intelligence**
-- [ ] Market gap analysis
-- [ ] Competitor proximity mapping
-- [ ] Review sentiment analysis
-- [ ] Social media verification
+### 🔧 **CLI Maintenance & Enhancements**
+- [ ] Performance optimizations for large batch searches
+- [ ] Additional metropolitan areas (Austin, Denver, Seattle)
+- [ ] Enhanced export formats (XML, Excel)
+- [ ] Improved error handling and retry logic
+- [ ] Configuration file support (.gymintel.yaml)
 
-### 🌐 **Phase 4: Web Platform**
-- [ ] REST API endpoints
-- [ ] Interactive map interface
-- [ ] Real-time updates
-- [ ] User preference learning
+> **Note**: Advanced business intelligence, interactive maps, and web platform features are now being developed in **[GymIntel-Web](https://github.com/a-deal/gymintel-web)**
 
 ## Data Sources
 
@@ -209,13 +203,12 @@ Advanced **8-signal algorithm** for intelligent data fusion:
 - **Google Places API (New)** - Location data, hours, websites, photos
 - **Nominatim Geocoding** - Address coordinate conversion
 
-### **Planned Integrations**
-- OpenStreetMap Overpass API
-- Facebook Places Graph API
-- Instagram Basic Display API
-- Mindbody API
-- ClassPass API
-- Strava Heatmap API
+### **CLI-Focused Integrations** (Low Priority)
+- OpenStreetMap Overpass API (additional venue data)
+- CSV input support (bulk processing from files)
+- Configuration files (.gymintel.yaml)
+
+> **Advanced Integrations**: Social media APIs, business intelligence features, and real-time data are being implemented in **[GymIntel-Web](https://github.com/a-deal/gymintel-web)**
 
 ## Export Formats
 
