@@ -2,9 +2,9 @@ name: GymIntel Fast CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ develop ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ develop ]
 
 # Optimize for speed while maintaining quality
 jobs:
@@ -197,19 +197,27 @@ jobs:
   # Final status check
   ci-success:
     needs: [quick-checks, test, security-scan, documentation-check]
-    # Include performance-test only if it ran
-    if: always() && (needs.quick-checks.result == 'success')
+    if: always()
     runs-on: ubuntu-latest
     steps:
     - name: Check overall status
       run: |
-        # Check if critical jobs passed
+        # Check if critical jobs passed (matrix jobs use different syntax)
+        echo "Test job result: ${{ needs.test.result }}"
+        echo "Security scan result: ${{ needs.security-scan.result }}"
+        echo "Documentation check result: ${{ needs.documentation-check.result }}"
+
+        # For matrix jobs, result can be 'success' only if all matrix entries succeed
         if [[ "${{ needs.test.result }}" != "success" ]]; then
-          echo "❌ Tests failed"
+          echo "❌ Tests failed or were skipped"
           exit 1
         fi
         if [[ "${{ needs.security-scan.result }}" != "success" ]]; then
           echo "❌ Security scan failed"
+          exit 1
+        fi
+        if [[ "${{ needs.documentation-check.result }}" != "success" ]]; then
+          echo "❌ Documentation check failed"
           exit 1
         fi
         echo "🎉 Fast CI pipeline completed successfully!"
