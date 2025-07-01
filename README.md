@@ -10,6 +10,13 @@ A powerful CLI tool delivering **comprehensive gym intelligence** through **mult
 - **Intelligent duplicate detection** achieving 20%+ merge rates
 - **Google Places API (New)** for 5x faster performance
 
+### 🏙️ **Metropolitan Intelligence** (NEW)
+- **6 Major US Metropolitan Areas**: NYC, LA, Chicago, SF, Boston, Miami
+- **400+ ZIP codes** with market characteristics and demographics
+- **Parallel batch processing** with configurable workers (2-6)
+- **Cross-ZIP deduplication** removing 90%+ duplicates
+- **Metropolitan analytics** with aggregate statistics
+
 ### 🏋️ **Comprehensive Gym Data**
 - **Complete contact info** - phones, addresses, websites
 - **Ratings & reviews** from multiple sources with cross-validation
@@ -64,28 +71,60 @@ cp .env.example .env
 ### Basic Discovery
 ```bash
 # Multi-source gym discovery (recommended)
-python gym_finder.py --zipcode 10001
+python main.py --zipcode 10001
 
 # Custom search radius in miles
-python gym_finder.py --zipcode 10001 --radius 5
+python main.py --zipcode 10001 --radius 5
 
 # Yelp-only mode (faster, less comprehensive)
-python gym_finder.py --zipcode 10001 --no-google
+python main.py --zipcode 10001 --no-google
+```
+
+### 🆕 Metropolitan Area Search
+```bash
+# Search entire metropolitan area
+python main.py --metro nyc --radius 2
+
+# List available metropolitan areas
+python main.py --list-metros
+
+# Sample mode for testing (limit ZIP codes)
+python main.py --metro la --sample 10 --radius 2
+
+# Export metropolitan results
+python main.py --metro chicago --export csv
+```
+
+### 🆕 Batch Processing
+```bash
+# Process multiple ZIP codes
+python main.py --zipcodes "10001,10003,10011" --radius 1
+
+# Batch with custom workers
+python main.py --zipcodes "10001,10003,10011,10014,10016" --workers 6
+
+# Export batch results
+python main.py --zipcodes "90210,90211,90212" --export json
 ```
 
 ### Export & Analysis
 ```bash
 # Export with confidence scoring and merge statistics
-python gym_finder.py --zipcode 10001 --export csv
-python gym_finder.py --zipcode 10001 --export json
-python gym_finder.py --zipcode 10001 --export both
+python main.py --zipcode 10001 --export csv
+python main.py --zipcode 10001 --export json
+python main.py --zipcode 10001 --export both
 ```
 
 ### Command Options
-- `--zipcode` / `-z`: ZIP code to search (required)
+- `--zipcode` / `-z`: Single ZIP code to search
+- `--metro` / `-m`: Metropolitan area code (nyc, la, chicago, sf, boston, miami)
+- `--zipcodes`: Comma-separated list of ZIP codes for batch processing
 - `--radius` / `-r`: Search radius in miles (default: 10)
 - `--export` / `-e`: Export format - csv, json, or both
 - `--no-google`: Disable Google Places (Yelp-only)
+- `--workers`: Number of parallel workers (default: 4)
+- `--sample`: Sample size for metro areas (for testing)
+- `--list-metros`: List available metropolitan areas
 
 ## Sample Output
 
@@ -140,8 +179,11 @@ Advanced **8-signal algorithm** for intelligent data fusion:
 - [x] Intelligent duplicate detection
 - [x] Enhanced export capabilities
 
-### 🚀 **Phase 2: Metropolitan Intelligence**
-- [ ] Multi-city batch processing
+### ✅ **Phase 2: Metropolitan Intelligence** (COMPLETED)
+- [x] Multi-city batch processing with 6 major US metros
+- [x] Parallel processing with configurable workers
+- [x] Cross-ZIP deduplication (90%+ efficiency)
+- [x] Metropolitan area analytics and statistics
 - [ ] Weekly refresh capabilities
 - [ ] Historical trend analysis
 - [ ] Advanced filtering (amenities, equipment)
